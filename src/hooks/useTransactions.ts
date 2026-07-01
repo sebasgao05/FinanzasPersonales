@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import type { TransactionFormData } from '@/lib/validators/transaction';
 import {
   type TransactionRecord,
@@ -35,31 +34,14 @@ export interface UseTransactionsReturn {
   deleteTransaction: (id: string) => Promise<void>;
 }
 
-// --- Mock data layer ---
-// Simulates Amplify Data client for Transaction entities.
-// Stores data per user in memory (resets on page reload).
-
-const transactionStore: Record<string, TransactionRecord[]> = {};
-
-function getStore(userId: string): TransactionRecord[] {
-  if (!transactionStore[userId]) {
-    transactionStore[userId] = [];
-  }
-  return transactionStore[userId];
-}
-
-async function loadTransactions(userId: string): Promise<TransactionRecord[]> {
-  // Simulate async API call
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  return getStore(userId);
-}
-
-async function persistStore(userId: string, records: TransactionRecord[]): Promise<void> {
-  // Simulate async API call
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  transactionStore[userId] = [...records];
-}
-
+// --- Mock data layer (store centralizado) ---
+import {
+  getTransactions as getMockTransactions,
+  addTransaction as addMockTransaction,
+  updateTransaction as updateMockTransaction,
+  removeTransaction as removeMockTransaction,
+  subscribe as subscribeMock,
+} from '@/lib/mock-store';
 // --- End mock data layer ---
 
 let idCounter = 0;
@@ -96,47 +78,21 @@ function toCalculationTransactions(records: TransactionRecord[]): CalculationTra
  * Requirements: 1.4, 5.11, 15.2
  */
 export function useTransactions(): UseTransactionsReturn {
-  const { user, isAuthenticated } = useAuth();
-
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>(getMockTransactions());
+  const isLoading = false;
   const [filters, setFilters] = useState<TableFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState<keyof TransactionRecord>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Load transactions when user is authenticated (Req 1.4, 15.2)
+  // Subscribe to centralized store changes (so Dashboard/CashFlow see new data)
   useEffect(() => {
-    if (!isAuthenticated || !user) {
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const userId = user.userId;
-
-    async function init() {
-      setIsLoading(true);
-      try {
-        const records = await loadTransactions(userId);
-        if (cancelled) return;
-        setTransactions(records);
-      } catch {
-        // Keep current state on error
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    init();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, user]);
+    const unsubscribe = subscribeMock(() => {
+      setTransactions(getMockTransactions());
+    });
+    return unsubscribe;
+  }, []);
 
   // Compute filtered, searched, and sorted transactions
   const processedTransactions = useMemo(() => {
@@ -196,8 +152,6 @@ export function useTransactions(): UseTransactionsReturn {
    */
   const createTransaction = useCallback(
     async (data: TransactionFormData) => {
-      if (!user) return;
-
       const now = new Date().toISOString();
       const newRecord: TransactionRecord = {
         id: generateId(),
@@ -206,9 +160,9 @@ export function useTransactions(): UseTransactionsReturn {
         year: extractYear(data.date),
         type: data.type,
         categoryId: data.categoryId,
-        categoryName: data.categoryId, // In real app, resolve name from catalog
+        categoryName: data.categoryId,
         conceptId: data.conceptId,
-        conceptName: data.conceptId, // In real app, resolve name from catalog
+        conceptName: data.conceptId,
         detail: data.detail,
         budget: data.budget,
         amount: data.amount,
@@ -218,45 +172,24 @@ export function useTransactions(): UseTransactionsReturn {
         updatedAt: now,
       };
 
-      const updated = [...transactions, newRecord];
-      setTransactions(updated);
-
-      // Persist
-      await persistStore(user.userId, updated);
+      addMockTransaction(newRecord);
     },
-    [user, transactions]
+    []
   );
 
   /**
    * Updates an existing transaction by ID with partial data.
    * Recomputes month/year if date changes.
    */
-  const updateTransaction = useCallback(
+  const updateTransactionFn = useCallback(
     async (id: string, data: Partial<TransactionFormData>) => {
-      if (!user) return;
-
-      const updated = transactions.map((txn) => {
-        if (txn.id !== id) return txn;
-
-        const updatedRecord: TransactionRecord = {
-          ...txn,
-          ...data,
-          updatedAt: new Date().toISOString(),
-        };
-
-        // Recompute month and year if date changed
-        if (data.date) {
-          updatedRecord.month = extractMonth(data.date);
-          updatedRecord.year = extractYear(data.date);
-        }
-
-        return updatedRecord;
+      updateMockTransaction(id, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+        ...(data.date ? { month: extractMonth(data.date), year: extractYear(data.date) } : {}),
       });
-
-      setTransactions(updated);
-      await persistStore(user.userId, updated);
     },
-    [user, transactions]
+    []
   );
 
   /**
@@ -264,13 +197,9 @@ export function useTransactions(): UseTransactionsReturn {
    */
   const deleteTransaction = useCallback(
     async (id: string) => {
-      if (!user) return;
-
-      const updated = transactions.filter((txn) => txn.id !== id);
-      setTransactions(updated);
-      await persistStore(user.userId, updated);
+      removeMockTransaction(id);
     },
-    [user, transactions]
+    []
   );
 
   return {
@@ -290,7 +219,7 @@ export function useTransactions(): UseTransactionsReturn {
     setSort,
     setPage,
     createTransaction,
-    updateTransaction,
+    updateTransaction: updateTransactionFn,
     deleteTransaction,
   };
 }
