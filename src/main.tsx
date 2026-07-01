@@ -5,10 +5,7 @@ import outputs from '../amplify_outputs.json';
 import './index.css';
 import App from './App.tsx';
 
-// Solo configura Amplify si hay outputs reales (auth endpoint presente)
-if (outputs && 'auth' in outputs && Object.keys(outputs.auth as object).length > 0) {
-  Amplify.configure(outputs as Parameters<typeof Amplify.configure>[0]);
-}
+Amplify.configure(outputs as Parameters<typeof Amplify.configure>[0]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

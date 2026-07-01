@@ -25,3 +25,7 @@ dist-ssr
 
 # Amplify Gen 2
 .amplify/
+amplify_outputs.json
+
+# npm (no longer used)
+package-lock.json

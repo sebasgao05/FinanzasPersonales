@@ -29,8 +29,8 @@ Guía paso a paso para desplegar Finanzas Personales en AWS con autenticación r
 # Node.js 18+ (recomendado 20)
 node --version    # Debe ser v18.x o superior
 
-# npm 9+
-npm --version
+# pnpm 9+
+pnpm --version
 
 # AWS CLI v2
 aws --version     # aws-cli/2.x.x
@@ -380,14 +380,24 @@ Amplify detecta automáticamente que es un proyecto Amplify Gen 2. Las build set
 
 ```yaml
 version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - corepack enable
+        - corepack prepare pnpm@latest --activate
+        - pnpm install --frozen-lockfile
+        - pnpm exec ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
 frontend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - corepack enable
+        - corepack prepare pnpm@latest --activate
+        - pnpm install --frozen-lockfile
     build:
       commands:
-        - npm run build
+        - pnpm run build
   artifacts:
     baseDirectory: dist
     files:
@@ -401,14 +411,24 @@ Si Amplify no las genera automáticamente, crea `amplify.yml` en la raíz:
 
 ```yaml
 version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - corepack enable
+        - corepack prepare pnpm@latest --activate
+        - pnpm install --frozen-lockfile
+        - pnpm exec ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
 frontend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - corepack enable
+        - corepack prepare pnpm@latest --activate
+        - pnpm install --frozen-lockfile
     build:
       commands:
-        - npm run build
+        - pnpm run build
   artifacts:
     baseDirectory: dist
     files:
@@ -539,11 +559,11 @@ npx ampx sandbox    # Genera el archivo
 ┌─────────────────────────────────────────────────────────┐
 │  DESARROLLO LOCAL                                        │
 │                                                          │
-│  1. npm install                                          │
+│  1. pnpm install                                         │
 │  2. npx ampx sandbox  (despliega backend personal)      │
 │  3. Configurar Amplify.configure() en main.tsx           │
 │  4. Reemplazar mocks con Amplify Data Client             │
-│  5. npm run dev  (frontend + backend real)               │
+│  5. pnpm dev  (frontend + backend real)                  │
 │  6. Probar login, CRUD, persistencia                     │
 └────────────────────────────┬────────────────────────────┘
                              │
@@ -567,15 +587,15 @@ npx ampx sandbox    # Genera el archivo
 # Desarrollo
 npx ampx sandbox                    # Iniciar sandbox
 npx ampx sandbox delete             # Eliminar sandbox (limpia recursos AWS)
-npm run dev                          # Frontend local
+pnpm dev                             # Frontend local
 
 # Testing
-npm run test                         # Correr tests
-npm run build                        # Verificar que compila
+pnpm test                            # Correr tests
+pnpm build                           # Verificar que compila
 
 # Producción
 git push origin main                 # Trigger auto-deploy
-npx ampx pipeline-deploy --branch main --app-id <ID>  # Deploy manual
+pnpm exec ampx pipeline-deploy --branch main --app-id <ID>  # Deploy manual
 
 # Debugging
 npx ampx sandbox --debug             # Sandbox con logs detallados
