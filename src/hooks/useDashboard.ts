@@ -1,30 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { totalIncome, totalExpense, balance } from '@/lib/calculations/totals';
 import { categoryDistribution } from '@/lib/calculations/distribution';
 import { safeDiv } from '@/lib/calculations/engine';
 import type { CalculationTransaction, CategoryDistribution } from '@/lib/calculations/types';
 import type { TransactionRecord } from '@/lib/utils/filtering';
+import { getTransactions, subscribe } from '@/lib/mock-store';
 
-// --- Mock data layer ---
-// Simulates loading transactions from backend (same store as useTransactions).
-// In production, this would query Amplify Data filtered by owner + month + year + currency.
-
-const transactionStore: Record<string, TransactionRecord[]> = {};
-
-function getStore(userId: string): TransactionRecord[] {
-  if (!transactionStore[userId]) {
-    transactionStore[userId] = [];
-  }
-  return transactionStore[userId];
-}
-
-async function loadTransactions(userId: string): Promise<TransactionRecord[]> {
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  return getStore(userId);
-}
-// --- End mock data layer ---
+// Uses centralized mock store (shared with useTransactions)
 
 /**
  * Dashboard KPI metrics.
@@ -167,18 +150,24 @@ function computeKPIs(transactions: CalculationTransaction[]): DashboardKPIs {
  * Validates: Requirements 8.1, 8.2, 8.3
  */
 export function useDashboard(): UseDashboardReturn {
-  const { user, isAuthenticated } = useAuth();
   const { settings, isLoading: settingsLoading } = useSettings();
 
-  const [allTransactions, setAllTransactions] = useState<TransactionRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allTransactions, setAllTransactions] = useState<TransactionRecord[]>(getTransactions());
   const [filters, setFiltersState] = useState<DashboardFilters>({
     month: settings.defaultMonth,
     year: settings.defaultYear,
     currency: settings.defaultCurrency,
   });
 
-  // Sync filters with settings when settings load (Req 8.1: precargados con valores predeterminados)
+  // Subscribe to centralized store
+  useEffect(() => {
+    const unsubscribe = subscribe(() => {
+      setAllTransactions(getTransactions());
+    });
+    return unsubscribe;
+  }, []);
+
+  // Sync filters with settings when settings load
   useEffect(() => {
     if (!settingsLoading) {
       setFiltersState({
@@ -188,38 +177,6 @@ export function useDashboard(): UseDashboardReturn {
       });
     }
   }, [settingsLoading, settings.defaultMonth, settings.defaultYear, settings.defaultCurrency]);
-
-  // Load transactions when user is authenticated
-  useEffect(() => {
-    if (!isAuthenticated || !user) {
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const userId = user.userId;
-
-    async function init() {
-      setIsLoading(true);
-      try {
-        const records = await loadTransactions(userId);
-        if (cancelled) return;
-        setAllTransactions(records);
-      } catch {
-        // Keep current state on error
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    init();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, user]);
 
   // Filter transactions by dashboard filters (Req 8.3)
   const filteredTransactions = useMemo(() => {
@@ -255,7 +212,7 @@ export function useDashboard(): UseDashboardReturn {
     kpis,
     distribution,
     filters,
-    isLoading: isLoading || settingsLoading,
+    isLoading: settingsLoading,
     allTransactions,
     hasData,
     setFilters,
