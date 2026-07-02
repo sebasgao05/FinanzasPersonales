@@ -3,6 +3,7 @@ backend:
   phases:
     build:
       commands:
+        - export NODE_OPTIONS="--max-old-space-size=8192"
         - corepack enable
         - corepack prepare pnpm@latest --activate
         - pnpm install --frozen-lockfile
@@ -13,10 +14,9 @@ frontend:
       commands:
         - corepack enable
         - corepack prepare pnpm@latest --activate
-        - pnpm install --frozen-lockfile
+        - pnpm install --frozen-lockfile --prefer-offline
     build:
       commands:
-        - export NODE_OPTIONS="--max-old-space-size=4096"
         - pnpm run build:ci
   artifacts:
     baseDirectory: dist
