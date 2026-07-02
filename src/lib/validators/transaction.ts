@@ -9,6 +9,8 @@ export interface TransactionFormData {
   type: 'Ingreso' | 'Egreso';
   categoryId: string;
   conceptId: string;
+  categoryName?: string;
+  conceptName?: string;
   detail?: string;
   budget?: number;
   amount: number;

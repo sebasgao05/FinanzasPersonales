@@ -1,22 +1,33 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { TransactionForm } from '@/components/transactions/TransactionForm';
 import { type TransactionFormData } from '@/lib/validators/transaction';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useCatalogs } from '@/hooks/useCatalogs';
+import { useState } from 'react';
 
 export default function TransactionEntryPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { createTransaction } = useTransactions();
+  const { categories, concepts } = useCatalogs();
 
   const handleSave = useCallback(
     async (data: TransactionFormData & { month: string; year: number }) => {
-      // TODO: Replace with actual Amplify Data mutation when backend is connected
-      // Simulates saving to DynamoDB via AppSync
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Resolve category and concept names from IDs
+      const category = categories.find((c) => c.id === data.categoryId);
+      const concept = concepts.find((c) => c.id === data.conceptId);
 
-      console.log('Transaction saved:', data);
+      const enrichedData = {
+        ...data,
+        categoryName: category?.name ?? data.categoryId,
+        conceptName: concept?.name ?? data.conceptId,
+      };
+
+      await createTransaction(enrichedData);
 
       setSuccessMessage('Transacción guardada exitosamente');
       setTimeout(() => setSuccessMessage(null), 3000);
     },
-    []
+    [createTransaction, categories, concepts]
   );
 
   return (

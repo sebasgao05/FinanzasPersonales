@@ -7,7 +7,9 @@ export interface RecurringPaymentData {
   name: string;
   type: 'Ingreso' | 'Egreso';
   categoryId: string;
+  categoryName?: string;
   conceptId: string;
+  conceptName?: string;
   estimatedAmount: number;
   payDay: number;
   frequency: 'mensual' | 'quincenal' | 'anual' | 'personalizada';

@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useCatalogs } from '@/hooks/useCatalogs';
 import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { TransactionFilters } from '@/components/transactions/TransactionFilters';
 import { EditTransactionDialog, DeleteConfirmDialog } from '@/components/transactions/EditTransactionDialog';
@@ -41,6 +42,34 @@ export default function DataTablePage() {
     deleteTransaction,
   } = useTransactions();
 
+  const { categories, concepts } = useCatalogs();
+
+  // Resolve category/concept names for transactions that have IDs stored as names
+  const resolveNames = useCallback(
+    (transactions: TransactionRecord[]): TransactionRecord[] => {
+      return transactions.map((t) => {
+        const cat = categories.find((c) => c.id === t.categoryName || c.id === t.categoryId);
+        const con = concepts.find((c) => c.id === t.conceptName || c.id === t.conceptId);
+        return {
+          ...t,
+          categoryName: cat?.name ?? t.categoryName,
+          conceptName: con?.name ?? t.conceptName,
+        };
+      });
+    },
+    [categories, concepts]
+  );
+
+  const resolvedFiltered = useMemo(
+    () => resolveNames(filteredTransactions),
+    [filteredTransactions, resolveNames]
+  );
+
+  const resolvedAllFiltered = useMemo(
+    () => resolveNames(allFilteredTransactions),
+    [allFilteredTransactions, resolveNames]
+  );
+
   // Edit dialog state
   const [editingTransaction, setEditingTransaction] = useState<TransactionRecord | null>(null);
 
@@ -78,7 +107,7 @@ export default function DataTablePage() {
       </div>
 
       {/* Action buttons: Export CSV + Download template */}
-      <CSVExporter filteredTransactions={allFilteredTransactions} />
+      <CSVExporter filteredTransactions={resolvedAllFiltered} />
 
       {/* Filters and search */}
       <TransactionFilters
@@ -90,7 +119,7 @@ export default function DataTablePage() {
 
       {/* Transaction table with edit/delete actions */}
       <TransactionTable
-        transactions={filteredTransactions}
+        transactions={resolvedFiltered}
         totals={totals}
         sortColumn={sortColumn}
         sortDirection={sortDirection}

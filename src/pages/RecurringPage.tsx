@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useRecurringPayments } from '@/hooks/useRecurringPayments';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useCatalogs } from '@/hooks/useCatalogs';
 import { RecurringForm } from '@/components/recurring/RecurringForm';
 import { RecurringList } from '@/components/recurring/RecurringList';
 import { GenerateDialog } from '@/components/recurring/GenerateDialog';
@@ -26,6 +27,7 @@ export default function RecurringPage() {
   } = useRecurringPayments();
 
   const { createTransaction } = useTransactions();
+  const { categories, concepts } = useCatalogs();
 
   // Edit state: when set, the form switches to edit mode
   const [editingPayment, setEditingPayment] = useState<RecurringPayment | null>(null);
@@ -45,12 +47,21 @@ export default function RecurringPage() {
   const handleSave = useCallback(
     async (data: RecurringPaymentData) => {
       try {
+        // Resolve category and concept names from IDs
+        const category = categories.find((c) => c.id === data.categoryId);
+        const concept = concepts.find((c) => c.id === data.conceptId);
+        const enrichedData = {
+          ...data,
+          categoryName: category?.name ?? data.categoryId,
+          conceptName: concept?.name ?? data.conceptId,
+        };
+
         if (editingPayment) {
-          await updatePayment(editingPayment.id, data);
+          await updatePayment(editingPayment.id, enrichedData);
           setEditingPayment(null);
           showMessage('success', 'Pago recurrente actualizado exitosamente');
         } else {
-          await createPayment(data);
+          await createPayment(enrichedData);
           showMessage('success', 'Pago recurrente creado exitosamente');
         }
       } catch (err) {
@@ -60,7 +71,7 @@ export default function RecurringPage() {
         throw err; // Re-throw so form can display error
       }
     },
-    [editingPayment, createPayment, updatePayment]
+    [editingPayment, createPayment, updatePayment, categories, concepts]
   );
 
   // Handle cancel edit

@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Save } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useReconciliation } from '@/hooks/useReconciliation';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useSettings } from '@/contexts/SettingsContext';
 import { formatAmount, formatPercentage } from '@/lib/utils/formatting';
 import ReconciliationForm from '@/components/reconciliation/ReconciliationForm';
 import AccountBalances from '@/components/reconciliation/AccountBalances';
@@ -37,8 +39,32 @@ export default function ReconciliationPage() {
     deactivateAccount,
     updateBalance,
     setManualAdjustment,
+    setAutomaticAccumulated,
     saveReconciliation,
   } = useReconciliation();
+
+  const { transactions } = useTransactions();
+  const { settings } = useSettings();
+
+  // Calculate automatic accumulated from all transactions in default currency
+  // This is the total balance (income - expenses) that should be located in accounts
+  const calculatedAccumulated = useMemo(() => {
+    const filtered = transactions.filter(
+      (t) => t.currency === settings.defaultCurrency
+    );
+    const income = filtered
+      .filter((t) => t.type === 'Ingreso')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expense = filtered
+      .filter((t) => t.type === 'Egreso')
+      .reduce((sum, t) => sum + t.amount, 0);
+    return Math.round((income - expense) * 100) / 100;
+  }, [transactions, settings.defaultCurrency]);
+
+  // Update the accumulated value when transactions change
+  useEffect(() => {
+    setAutomaticAccumulated(calculatedAccumulated);
+  }, [calculatedAccumulated, setAutomaticAccumulated]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -47,19 +73,21 @@ export default function ReconciliationPage() {
   );
 
   // Handle save
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
     setSaveMessage('');
     try {
       await saveReconciliation();
       setSaveMessage('Conciliación guardada exitosamente');
-      setTimeout(() => setSaveMessage(''), 3000);
-    } catch {
-      setSaveMessage('Error al guardar la conciliación');
+      setTimeout(() => setSaveMessage(''), 4000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido al guardar';
+      setSaveMessage(`Error: ${msg}`);
+      console.error('Save reconciliation error:', err);
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [saveReconciliation]);
 
   // Chart data: distribution of balances by account (active only)
   const chartData = useMemo(() => {

@@ -1,6 +1,6 @@
 # Guía de Despliegue a AWS Amplify Gen 2
 
-Guía paso a paso para desplegar Finanzas Personales en AWS con autenticación real, base de datos y hosting.
+Guía paso a paso para desplegar Finanzas Personales en **tu propia cuenta AWS** con autenticación, base de datos y hosting.
 
 ---
 
@@ -8,16 +8,13 @@ Guía paso a paso para desplegar Finanzas Personales en AWS con autenticación r
 
 1. [Requisitos previos](#1-requisitos-previos)
 2. [Configurar cuenta AWS](#2-configurar-cuenta-aws)
-3. [Preparar el proyecto](#3-preparar-el-proyecto)
+3. [Clonar y preparar el proyecto](#3-clonar-y-preparar-el-proyecto)
 4. [Desarrollo con sandbox local](#4-desarrollo-con-sandbox-local)
-5. [Conectar frontend al backend](#5-conectar-frontend-al-backend)
-6. [Reemplazar mocks con Amplify Data Client](#6-reemplazar-mocks-con-amplify-data-client)
-7. [Probar en local con backend real](#7-probar-en-local-con-backend-real)
-8. [Subir a GitHub](#8-subir-a-github)
-9. [Desplegar en Amplify Hosting (Producción)](#9-desplegar-en-amplify-hosting-producción)
-10. [Dominio personalizado](#10-dominio-personalizado-opcional)
-11. [Costos estimados](#11-costos-estimados)
-12. [Troubleshooting](#12-troubleshooting)
+5. [Desplegar en Amplify Hosting (Producción)](#5-desplegar-en-amplify-hosting-producción)
+6. [Ambientes (branches)](#6-ambientes-branches)
+7. [Dominio personalizado](#7-dominio-personalizado-opcional)
+8. [Costos estimados](#8-costos-estimados)
+9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
@@ -29,7 +26,7 @@ Guía paso a paso para desplegar Finanzas Personales en AWS con autenticación r
 # Node.js 18+ (recomendado 20)
 node --version    # Debe ser v18.x o superior
 
-# pnpm 9+
+# pnpm 9+ (package manager del proyecto)
 pnpm --version
 
 # AWS CLI v2
@@ -37,6 +34,17 @@ aws --version     # aws-cli/2.x.x
 
 # Git
 git --version
+```
+
+### Instalar pnpm (si no lo tienes)
+
+```bash
+# Opción 1: via npm
+npm install -g pnpm
+
+# Opción 2: via corepack (recomendado, incluido en Node.js 16+)
+corepack enable
+corepack prepare pnpm@latest --activate
 ```
 
 ### Instalar AWS CLI (si no lo tienes)
@@ -49,13 +57,12 @@ git --version
 
 ## 2. Configurar Cuenta AWS
 
-### Opción A: Usuario IAM con acceso programático (simple)
+### Opción A: Usuario IAM con acceso programático
 
 1. Ve a [IAM Console](https://console.aws.amazon.com/iam)
-2. Crea un usuario nuevo o usa uno existente
-3. Adjunta la política `AdministratorAccess` (para desarrollo — puedes restringir luego)
-4. Crea Access Keys (Access Key ID + Secret Access Key)
-5. Configura localmente:
+2. Crea un usuario con la política `AdministratorAccess`
+3. Genera Access Keys (Access Key ID + Secret Access Key)
+4. Configura localmente:
 
 ```bash
 aws configure
@@ -68,315 +75,121 @@ Default region name: us-east-1
 Default output format: json
 ```
 
-### Opción B: AWS IAM Identity Center / SSO (corporativo)
+### Opción B: AWS IAM Identity Center / SSO
 
 ```bash
 aws configure sso
 # Sigue el flujo del navegador para autenticarte
 ```
 
-### Verificar que funciona
+### Verificar
 
 ```bash
 aws sts get-caller-identity
+# Debe mostrar tu Account ID y ARN
 ```
-
-Debe mostrar tu Account ID y ARN.
 
 ---
 
-## 3. Preparar el Proyecto
+## 3. Clonar y Preparar el Proyecto
 
-### 3.1 Verificar estructura de Amplify
+```bash
+# Clonar
+git clone https://github.com/david-barrera-blend/FinanzasPersonales.git
+cd FinanzasPersonales
 
-Tu proyecto ya tiene la estructura correcta:
+# Instalar dependencias
+pnpm install
 
-```
-amplify/
-├── auth/
-│   └── resource.ts       ← Configuración de Cognito
-├── data/
-│   └── resource.ts       ← Schema de DynamoDB/AppSync
-├── backend.ts            ← Entry point del backend
-└── tsconfig.json
+# Verificar que compila
+pnpm build
 ```
 
-### 3.2 Verificar package.json
+### Archivos clave de infraestructura
 
-Asegúrate de que `@aws-amplify/backend` está en devDependencies:
-
-```json
-{
-  "devDependencies": {
-    "@aws-amplify/backend": "^1.23.0"
-  }
-}
-```
-
-✅ Ya está incluido en tu proyecto.
-
-### 3.3 Agregar archivo .gitignore (verificar)
-
-Asegúrate de que estos archivos NO se suban al repo:
-
-```gitignore
-# Amplify
-amplify_outputs.json
-.amplify/
-```
-
-✅ Ya están en tu `.gitignore`.
+| Archivo | Función |
+|---------|---------|
+| `amplify/backend.ts` | Entry point del backend (auth + data) |
+| `amplify/auth/resource.ts` | Configuración de Cognito (email login) |
+| `amplify/data/resource.ts` | Schema de 9 modelos DynamoDB |
+| `amplify.yml` | Build settings para CI/CD de Amplify Hosting |
+| `.npmrc` | Configura pnpm con node-linker=hoisted |
+| `pnpm-lock.yaml` | Lockfile para builds reproducibles |
 
 ---
 
 ## 4. Desarrollo con Sandbox Local
 
-El sandbox de Amplify Gen 2 despliega un stack **personal** en tu cuenta AWS. Cada desarrollador tiene su propio sandbox.
+El sandbox despliega un stack personal en tu cuenta AWS para desarrollo.
 
-### 4.1 Iniciar el sandbox
+> **Nota en Windows:** `ampx` no soporta pnpm en Windows directamente. Usa `npx`:
 
 ```bash
 npx ampx sandbox
 ```
 
-**Primera vez** tarda 3-5 minutos. Amplify:
-1. Crea un stack CloudFormation `amplify-finanzaspersonales-sandbox-XXXXX`
-2. Despliega:
-   - Amazon Cognito User Pool (autenticación)
-   - AWS AppSync API (GraphQL)
-   - 9 tablas DynamoDB (Transaction, Category, Concept, etc.)
-3. Genera `amplify_outputs.json` con la configuración
-
-**Output esperado:**
-```
-✔  amplify-finanzaspersonales-<tu-usuario>-sandbox-XXXXX
-
-  amplify_outputs.json was updated.
-
-  Watching for file changes...
-```
-
-> **Déjalo corriendo** en una terminal. Detecta cambios en `amplify/` automáticamente.
-
-### 4.2 Verificar recursos creados
-
-Ve a [CloudFormation Console](https://console.aws.amazon.com/cloudformation) y verás un stack con estado `CREATE_COMPLETE`.
-
-Ve a [Cognito Console](https://console.aws.amazon.com/cognito) y verás un User Pool creado.
-
-Ve a [AppSync Console](https://console.aws.amazon.com/appsync) y verás una API GraphQL.
-
----
-
-## 5. Conectar Frontend al Backend
-
-### 5.1 Actualizar `src/main.tsx`
-
-```typescript
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { Amplify } from 'aws-amplify';
-import outputs from '../amplify_outputs.json';
-import './index.css';
-import App from './App.tsx';
-
-// Configurar Amplify con los outputs generados por el sandbox
-Amplify.configure(outputs);
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
-```
-
-### 5.2 Agregar type declaration para amplify_outputs.json
-
-Crea `src/amplify-outputs.d.ts`:
-
-```typescript
-declare module '../amplify_outputs.json' {
-  const outputs: Record<string, unknown>;
-  export default outputs;
-}
-```
-
-O agrega a `tsconfig.app.json`:
-
-```json
-{
-  "compilerOptions": {
-    "resolveJsonModule": true
-  },
-  "include": ["src", "amplify_outputs.json"]
-}
-```
-
-### 5.3 Restaurar AuthContext real
-
-Si hiciste el bypass temporal para pruebas locales, **revierte** `src/contexts/AuthContext.tsx` a la versión original que usa `getCurrentUser` y `Hub.listen`.
-
----
-
-## 6. Reemplazar Mocks con Amplify Data Client
-
-### 6.1 Crear el cliente generado
-
-Crea `src/lib/amplify-client.ts`:
-
-```typescript
-import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '../../amplify/data/resource';
-
-export const client = generateClient<Schema>();
-```
-
-### 6.2 Ejemplo: Actualizar `useTransactions.ts`
-
-**Reemplazar las funciones mock:**
-
-```typescript
-// ANTES (mock):
-const transactionStore: Record<string, TransactionRecord[]> = {};
-async function loadTransactions(userId: string) { ... }
-async function persistStore(userId: string, records: TransactionRecord[]) { ... }
-
-// DESPUÉS (Amplify real):
-import { client } from '@/lib/amplify-client';
-
-async function loadTransactions(): Promise<TransactionRecord[]> {
-  const { data, errors } = await client.models.Transaction.list();
-  if (errors && errors.length > 0) {
-    console.error('Error loading transactions:', errors);
-    return [];
-  }
-  return data.map(mapAmplifyToRecord);
-}
-
-async function createTransactionInDB(input: CreateTransactionInput) {
-  const { data, errors } = await client.models.Transaction.create(input);
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0].message);
-  }
-  return data;
-}
-
-async function updateTransactionInDB(id: string, input: Partial<CreateTransactionInput>) {
-  const { data, errors } = await client.models.Transaction.update({ id, ...input });
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0].message);
-  }
-  return data;
-}
-
-async function deleteTransactionInDB(id: string) {
-  const { errors } = await client.models.Transaction.delete({ id });
-  if (errors && errors.length > 0) {
-    throw new Error(errors[0].message);
-  }
-}
-```
-
-### 6.3 Hooks a actualizar
-
-| Hook | Archivo | Modelos que usa |
-|------|---------|----------------|
-| useTransactions | `src/hooks/useTransactions.ts` | Transaction |
-| useCatalogs | `src/hooks/useCatalogs.ts` | Category, Concept |
-| useReconciliation | `src/hooks/useReconciliation.ts` | CashAccount, CashReconciliation, CashBalance |
-| useRecurringPayments | `src/hooks/useRecurringPayments.ts` | RecurringPayment |
-| SettingsContext | `src/contexts/SettingsContext.tsx` | AppSetting |
-
-### 6.4 Patrón general de migración
-
-Para cada hook:
-
-1. Importar `client` desde `@/lib/amplify-client`
-2. Reemplazar `loadXXX()` → `client.models.XXX.list()`
-3. Reemplazar `persistStore()` → `client.models.XXX.create()` / `.update()` / `.delete()`
-4. Remover las variables `xxxStore` en memoria
-5. Remover `userId` como parámetro (Amplify filtra por owner automáticamente)
-
-> **Amplify maneja la autorización por owner automáticamente.** No necesitas filtrar por userId — el backend solo retorna registros del usuario autenticado.
-
----
-
-## 7. Probar en Local con Backend Real
+**Primera vez** tarda 3-5 minutos. Despliega:
+- Amazon Cognito User Pool
+- AWS AppSync API (GraphQL)
+- 9 tablas DynamoDB
+- Genera `amplify_outputs.json`
 
 ```bash
-# Terminal 1: Sandbox corriendo
+# Terminal 1: Sandbox corriendo (déjalo activo)
 npx ampx sandbox
 
-# Terminal 2: Servidor de desarrollo
-npm run dev
+# Terminal 2: Frontend
+pnpm dev
 ```
 
-### Lo que debes ver:
-
-1. **Pantalla de login real** — Formulario de Cognito funcional
-2. **Registro de usuario** — Puedes crear una cuenta con email + contraseña
-3. **Verificación de email** — Recibes código por correo
-4. **Datos persistentes** — Los datos sobreviven al recargar la página
-5. **Aislamiento por usuario** — Cada usuario solo ve sus propios datos
-
-### Crear tu primer usuario:
+### Verificar que funciona
 
 1. Abre http://localhost:5173
-2. Click "Create Account" / "Registrarse"
-3. Ingresa email y contraseña (min 8 chars, 1 mayúscula, 1 número, 1 especial)
-4. Revisa tu email para el código de verificación
-5. Ingresa el código
-6. Ya estás dentro de la app
+2. Registra un usuario (email + contraseña)
+3. Verifica email con código
+4. Crea categorías en Catálogos
+5. Registra una transacción
+6. Recarga la página — los datos persisten
+
+### Detener sandbox
+
+```bash
+npx ampx sandbox delete    # Elimina recursos AWS del sandbox
+```
 
 ---
 
-## 8. Subir a GitHub
+## 5. Desplegar en Amplify Hosting (Producción)
 
-### 8.1 Inicializar repositorio (si no lo has hecho)
+### Desde la Consola AWS
 
-```bash
-git init
-git add .
-git commit -m "feat: aplicación completa de finanzas personales"
-```
-
-### 8.2 Crear repositorio en GitHub
-
-1. Ve a https://github.com/new
-2. Nombre: `FinanzasPersonales`
-3. Privado (recomendado)
-4. No inicializar con README (ya lo tienes)
-
-### 8.3 Conectar y subir
-
-```bash
-git remote add origin https://github.com/TU_USUARIO/FinanzasPersonales.git
-git branch -M main
-git push -u origin main
-```
-
-### 8.4 Verificar que NO se sube información sensible
-
-Estos archivos NO deben estar en el repo:
-- `amplify_outputs.json` (contiene endpoints y config)
-- `.amplify/` (cache local)
-- `node_modules/`
-
----
-
-## 9. Desplegar en Amplify Hosting (Producción)
-
-### 9.1 Desde la Consola AWS (recomendado)
-
-1. Ve a [AWS Amplify Console](https://console.aws.amazon.com/amplify/home)
+1. Ve a [AWS Amplify Console](https://console.aws.amazon.com/amplify)
 2. Click **"Create new app"**
-3. Selecciona **"GitHub"** como fuente
-4. Autoriza el acceso a tu cuenta GitHub
-5. Selecciona el repositorio `FinanzasPersonales` y branch `main`
+3. Selecciona **"GitHub"** → autoriza acceso
+4. Selecciona el repositorio y branch `main`
+5. **Build settings**: Amplify detecta `amplify.yml` automáticamente
+6. **Instancia de compilación**: Selecciona **"Grande"** (16GB) — necesario por CDK
+7. Click **"Save and deploy"**
 
-### 9.2 Configuración del build
+### Lo que Amplify hace automáticamente:
 
-Amplify detecta automáticamente que es un proyecto Amplify Gen 2. Las build settings por defecto son:
+```
+1. Backend Build Phase:
+   ├── corepack enable (activa pnpm)
+   ├── pnpm install --frozen-lockfile
+   └── pnpm exec ampx pipeline-deploy (despliega Cognito + AppSync + DynamoDB)
+
+2. Frontend Build Phase:
+   ├── pnpm install --frozen-lockfile --prefer-offline
+   └── pnpm run build:ci (solo vite build, sin type-check redundante)
+
+3. Deploy:
+   ├── Sube dist/ a S3
+   ├── Invalida CloudFront cache
+   └── URL público: https://main.XXXXXXX.amplifyapp.com
+```
+
+### Configuración del `amplify.yml`
 
 ```yaml
 version: 1
@@ -384,6 +197,7 @@ backend:
   phases:
     build:
       commands:
+        - export NODE_OPTIONS="--max-old-space-size=8192"
         - corepack enable
         - corepack prepare pnpm@latest --activate
         - pnpm install --frozen-lockfile
@@ -394,10 +208,10 @@ frontend:
       commands:
         - corepack enable
         - corepack prepare pnpm@latest --activate
-        - pnpm install --frozen-lockfile
+        - pnpm install --frozen-lockfile --prefer-offline
     build:
       commands:
-        - pnpm run build
+        - pnpm run build:ci
   artifacts:
     baseDirectory: dist
     files:
@@ -407,197 +221,129 @@ frontend:
       - node_modules/**/*
 ```
 
-Si Amplify no las genera automáticamente, crea `amplify.yml` en la raíz:
+### CI/CD automático
 
-```yaml
-version: 1
-backend:
-  phases:
-    build:
-      commands:
-        - corepack enable
-        - corepack prepare pnpm@latest --activate
-        - pnpm install --frozen-lockfile
-        - pnpm exec ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - corepack enable
-        - corepack prepare pnpm@latest --activate
-        - pnpm install --frozen-lockfile
-    build:
-      commands:
-        - pnpm run build
-  artifacts:
-    baseDirectory: dist
-    files:
-      - '**/*'
-  cache:
-    paths:
-      - node_modules/**/*
-```
-
-### 9.3 Variables de entorno
-
-No se requieren variables de entorno. Amplify Gen 2 genera el `amplify_outputs.json` durante el build automáticamente para cada branch.
-
-### 9.4 Click "Save and deploy"
-
-Amplify automáticamente:
-1. Despliega el backend (Cognito + AppSync + DynamoDB) para producción
-2. Construye el frontend
-3. Lo sirve a través de CloudFront (CDN global)
-4. Genera un URL público: `https://main.XXXXXXXXXX.amplifyapp.com`
-
-**Tiempo estimado del primer deploy:** 5-10 minutos.
-
-### 9.5 CI/CD automático
-
-Después del primer deploy, cada `git push` a `main` dispara un nuevo deploy automáticamente.
-
-```bash
-# Hacer un cambio y pushear
-git add .
-git commit -m "fix: ajuste menor en dashboard"
-git push origin main
-# → Amplify redespliega en 2-3 minutos
-```
+Cada `git push` a la branch conectada dispara un redeploy automático (~3-5 min).
 
 ---
 
-## 10. Dominio Personalizado (Opcional)
+## 6. Ambientes (Branches)
 
-### Si tienes un dominio propio:
+Amplify Gen 2 soporta múltiples ambientes — cada branch tiene su propio stack aislado:
 
-1. En la consola de Amplify → **"Domain management"** → **"Add domain"**
-2. Ingresa tu dominio (ej: `finanzas.tudominio.com`)
-3. Amplify genera un certificado SSL automáticamente
-4. Te da registros DNS para configurar:
+| Branch | Ambiente | Recursos |
+|--------|----------|----------|
+| `main` | Producción | Cognito + DynamoDB + AppSync propios |
+| `dev` | Desarrollo | Stack completamente separado |
+
+### Conectar rama `dev`
+
+1. En Amplify Console → tu app → **"Branches"**
+2. Click **"Connect branch"**
+3. Selecciona `dev`
+4. Cada push a `dev` despliega en su propio ambiente
+
+Los datos entre ambientes son **completamente aislados** (distintas tablas DynamoDB, distintos User Pools).
+
+---
+
+## 7. Dominio Personalizado (Opcional)
+
+1. En Amplify Console → **"Domain management"** → **"Add domain"**
+2. Ingresa tu dominio (ej: `finanzas.midominio.com`)
+3. Amplify genera certificado SSL automáticamente
+4. Configura registros DNS:
 
 ```
 Tipo: CNAME
-Nombre: finanzas.tudominio.com
+Nombre: finanzas.midominio.com
 Valor: XXXXXXXXXX.cloudfront.net
 ```
 
-5. Agrega el registro en tu proveedor de dominio (GoDaddy, Namecheap, Route53, etc.)
-6. Espera propagación DNS (5 min - 48 hrs)
+5. Espera propagación DNS (5 min - 48 hrs)
 
 ---
 
-## 11. Costos Estimados
+## 8. Costos Estimados
 
 Para uso personal (1 usuario, < 1000 transacciones/mes):
 
-| Servicio | Costo mensual estimado |
-|----------|----------------------|
-| Cognito | $0 (hasta 50,000 MAU gratis) |
+| Servicio | Costo/mes |
+|----------|-----------|
+| Cognito | $0 (50,000 MAU gratis) |
 | DynamoDB | $0 (25GB + 25 WCU/RCU gratis) |
-| AppSync | ~$0.01 (4M queries gratis/mes) |
-| Amplify Hosting | ~$0 (hasta 1000 min build + 15GB serving gratis) |
-| CloudFront | $0 (1TB transfer gratis primer año) |
+| AppSync | ~$0.01 (4M queries/mes gratis) |
+| Amplify Hosting | ~$0 (1000 min build + 15GB serving gratis) |
+| CloudFront | $0 (1TB transfer primer año) |
 | **Total** | **$0 - $1/mes** |
 
-> AWS Free Tier cubre prácticamente todo para uso personal durante los primeros 12 meses.
+> AWS Free Tier cubre todo para uso personal durante los primeros 12 meses.
 
 ---
 
-## 12. Troubleshooting
+## 9. Troubleshooting
 
-### Error: "ampx: command not found"
+### "Build container ran out of memory"
+
+- En Amplify Console → App settings → General → **Build image settings**
+- Selecciona instancia **"Grande"** (16GB RAM)
+- El `amplify.yml` ya incluye `NODE_OPTIONS="--max-old-space-size=8192"`
+
+### "Command esbuild not found"
+
+- `esbuild` debe estar en `devDependencies` del `package.json`
+- Ya está incluido: `"esbuild": "^0.28.1"`
+
+### "ampx: Amplify does not support PNPM on Windows"
+
+- Esto es solo para desarrollo local en Windows
+- Usa `npx ampx sandbox` en vez de `pnpm exec ampx sandbox`
+- En CI/CD (Linux) funciona sin problemas
+
+### "Unable to resolve credentials"
 
 ```bash
-npx ampx sandbox    # Usa npx en vez de ampx directamente
+aws sts get-caller-identity    # Verificar credenciales
+aws configure                  # Reconfigurar
 ```
 
-### Error: "Unable to resolve credentials"
+### "amplify_outputs.json not found"
 
-```bash
-aws sts get-caller-identity    # Verificar que AWS CLI tiene credenciales
-aws configure                  # Reconfigurar si necesario
-```
-
-### Error: "amplify_outputs.json not found"
-
-El sandbox no se ha ejecutado aún:
 ```bash
 npx ampx sandbox    # Genera el archivo
 ```
-
-### Error en el deploy: "Build failed"
-
-1. Ve a Amplify Console → tu app → "Build" 
-2. Click en el build fallido para ver logs
-3. Causas comunes:
-   - TypeScript errors → `npm run build` localmente para ver errores
-   - Dependencias faltantes → verificar `package.json`
 
 ### El login no funciona en local
 
 - ¿Está corriendo `npx ampx sandbox`?
 - ¿Existe `amplify_outputs.json`?
-- ¿Está configurado `Amplify.configure(outputs)` en `main.tsx`?
+- Verifica `src/main.tsx` tiene `Amplify.configure(outputs)`
 
-### Los datos no se guardan
+### Los datos no se persisten
 
-- ¿Reemplazaste los mocks con el Amplify Data Client? (Paso 6)
-- ¿Está corriendo el sandbox?
-- Abre DevTools → Network → busca requests a AppSync
-
-### Error "No current user" después de recargar
-
-- El token JWT expiró
-- Amplify debería refrescar automáticamente
-- Si persiste: limpiar localStorage y re-login
+- Abre DevTools → Console → busca errores de AppSync
+- Verifica que creaste categorías antes de crear transacciones
+- El backend debe estar desplegado (sandbox o producción)
 
 ---
 
-## Resumen del Flujo Completo
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  DESARROLLO LOCAL                                        │
-│                                                          │
-│  1. pnpm install                                         │
-│  2. npx ampx sandbox  (despliega backend personal)      │
-│  3. Configurar Amplify.configure() en main.tsx           │
-│  4. Reemplazar mocks con Amplify Data Client             │
-│  5. pnpm dev  (frontend + backend real)                  │
-│  6. Probar login, CRUD, persistencia                     │
-└────────────────────────────┬────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────┐
-│  PRODUCCIÓN                                              │
-│                                                          │
-│  7. git push origin main                                 │
-│  8. Amplify Console → Connect repo                       │
-│  9. Auto-deploy (backend + frontend)                     │
-│  10. URL público: https://main.XXX.amplifyapp.com        │
-│  11. (Opcional) Dominio personalizado                    │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## Comandos Rápidos de Referencia
+## Comandos Rápidos
 
 ```bash
-# Desarrollo
-npx ampx sandbox                    # Iniciar sandbox
-npx ampx sandbox delete             # Eliminar sandbox (limpia recursos AWS)
-pnpm dev                             # Frontend local
+# Desarrollo local
+npx ampx sandbox                    # Iniciar sandbox (backend personal)
+npx ampx sandbox delete             # Eliminar sandbox
+pnpm dev                            # Frontend local
 
 # Testing
-pnpm test                            # Correr tests
-pnpm build                           # Verificar que compila
+pnpm test                           # 337 tests
+pnpm build                          # Verificar compilación
 
 # Producción
-git push origin main                 # Trigger auto-deploy
-pnpm exec ampx pipeline-deploy --branch main --app-id <ID>  # Deploy manual
+git push origin main                # Trigger auto-deploy
+git push origin dev                 # Deploy a ambiente dev
 
 # Debugging
-npx ampx sandbox --debug             # Sandbox con logs detallados
-aws cloudformation describe-stacks   # Ver stacks desplegados
+npx ampx sandbox --debug            # Logs detallados
+aws cloudformation describe-stacks  # Ver stacks desplegados
 ```

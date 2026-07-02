@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_ACCOUNTS } from '@/lib/utils/constants';
+import { client } from '@/lib/amplify-client';
 import {
   totalLocated as calcTotalLocated,
   pendingToLocate as calcPendingToLocate,
@@ -49,27 +50,6 @@ export interface UseReconciliationReturn {
 const MAX_ACCOUNTS = 20;
 const MAX_ACCOUNT_NAME_LENGTH = 30;
 
-// --- Mock data layer ---
-// Simulates Amplify Data client for CashAccount, CashReconciliation,
-// and CashBalance entities. Stores data per user in memory.
-
-interface ReconciliationStore {
-  accounts: CashAccount[];
-  reconciliations: ReconciliationData[];
-}
-
-const reconciliationStore: Record<string, ReconciliationStore> = {};
-
-function getStore(userId: string): ReconciliationStore {
-  if (!reconciliationStore[userId]) {
-    reconciliationStore[userId] = {
-      accounts: buildDefaultAccounts(),
-      reconciliations: [],
-    };
-  }
-  return reconciliationStore[userId];
-}
-
 function buildDefaultAccounts(): CashAccount[] {
   return DEFAULT_ACCOUNTS.map((name, index) => ({
     id: `account-default-${index + 1}`,
@@ -79,38 +59,6 @@ function buildDefaultAccounts(): CashAccount[] {
   }));
 }
 
-async function loadStore(userId: string): Promise<ReconciliationStore> {
-  // Simulate async API call
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  return getStore(userId);
-}
-
-async function persistAccounts(userId: string, accounts: CashAccount[]): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  const store = getStore(userId);
-  store.accounts = [...accounts];
-}
-
-async function persistReconciliation(
-  userId: string,
-  reconciliation: ReconciliationData
-): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  const store = getStore(userId);
-  store.reconciliations = [...store.reconciliations, reconciliation];
-}
-
-// --- End mock data layer ---
-
-let idCounter = 0;
-function generateId(): string {
-  idCounter += 1;
-  return `account-${Date.now()}-${idCounter}`;
-}
-
-/**
- * Computes reconciliation totals from accounts and base values.
- */
 function computeReconciliation(
   accounts: CashAccount[],
   automaticAccumulated: number,
@@ -147,15 +95,7 @@ function computeReconciliation(
 
 /**
  * Hook for managing cash reconciliation (Caja y Bancos).
- *
- * Behavior:
- * - Initializes with DEFAULT_ACCOUNTS (6 accounts: Efectivo, Nequi, Daviplata, Bancolombia, Lulo, Nu)
- * - Max 20 accounts, name max 30 chars, unique names (case-insensitive)
- * - When account balances change, recalculates: totalLocated, pendingToLocate, locatedPercentage, status
- * - totalBase = automaticAccumulated + manualAdjustment
- * - saveReconciliation persists the current state
- *
- * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.9
+ * Connected to Amplify Data (CashAccount, CashReconciliation, CashBalance).
  */
 export function useReconciliation(): UseReconciliationReturn {
   const { user, isAuthenticated } = useAuth();
@@ -164,23 +104,18 @@ export function useReconciliation(): UseReconciliationReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [automaticAccumulated, setAutomaticAccumulatedState] = useState(0);
   const [manualAdjustment, setManualAdjustmentState] = useState(0);
-  const [cutoffDate, setCutoffDate] = useState(new Date().toISOString().split('T')[0]);
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState(new Date().getFullYear());
 
-  // Initialize month from current date
-  useEffect(() => {
-    const now = new Date();
-    const months = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-    ];
-    setMonth(months[now.getMonth()]);
-    setYear(now.getFullYear());
-    setCutoffDate(now.toISOString().split('T')[0]);
-  }, []);
+  // Initialize with current date values immediately (not in useEffect)
+  const now = new Date();
+  const monthNames = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ];
+  const [cutoffDate] = useState(now.toISOString().split('T')[0]);
+  const [month] = useState(monthNames[now.getMonth()]);
+  const [year] = useState(now.getFullYear());
 
-  // Load accounts when user is authenticated (Req 10.3)
+  // Load accounts from Amplify
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setIsLoading(false);
@@ -188,20 +123,52 @@ export function useReconciliation(): UseReconciliationReturn {
     }
 
     let cancelled = false;
-    const userId = user.userId;
 
     async function init() {
       setIsLoading(true);
       try {
-        const store = await loadStore(userId);
+        const { data: items } = await client.models.CashAccount.list({ limit: 100 });
+
         if (cancelled) return;
-        setAccounts(store.accounts);
-      } catch {
-        // Keep current state on error
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
+
+        if (items && items.length > 0) {
+          const loadedAccounts: CashAccount[] = items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            isActive: item.isActive,
+            balance: 0, // Balances are per-reconciliation, start at 0
+          }));
+          setAccounts(loadedAccounts);
+        } else {
+          // First time: create default accounts in DB
+          const defaults = buildDefaultAccounts();
+          const created: CashAccount[] = [];
+
+          for (let i = 0; i < defaults.length; i++) {
+            const acc = defaults[i];
+            const { data: item } = await client.models.CashAccount.create({
+              name: acc.name,
+              isActive: true,
+              order: i,
+            } as any);
+            if (item) {
+              created.push({
+                id: item.id,
+                name: item.name,
+                isActive: item.isActive,
+                balance: 0,
+              });
+            }
+          }
+
+          if (!cancelled) {
+            setAccounts(created.length > 0 ? created : defaults);
+          }
         }
+      } catch (err) {
+        console.error('Error loading accounts:', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     }
 
@@ -212,7 +179,7 @@ export function useReconciliation(): UseReconciliationReturn {
     };
   }, [isAuthenticated, user]);
 
-  // Compute reconciliation state reactively (Req 10.1, 10.5)
+  // Compute reconciliation state reactively
   const reconciliation: ReconciliationData = useMemo(() => {
     return computeReconciliation(
       accounts,
@@ -224,77 +191,52 @@ export function useReconciliation(): UseReconciliationReturn {
     );
   }, [accounts, automaticAccumulated, manualAdjustment, cutoffDate, month, year]);
 
-  /**
-   * Adds a new bank account.
-   * Validates: max 20 accounts, name max 30 chars, unique name.
-   * Requirement: 10.4
-   */
   const addAccount = useCallback(
     async (name: string) => {
-      if (!user) return;
-
       const trimmedName = name.trim();
 
-      // Validate name is not empty
       if (!trimmedName) {
         throw new Error('El nombre de la cuenta es obligatorio');
       }
-
-      // Validate max length (30 chars)
       if (trimmedName.length > MAX_ACCOUNT_NAME_LENGTH) {
         throw new Error(`El nombre no puede exceder ${MAX_ACCOUNT_NAME_LENGTH} caracteres`);
       }
-
-      // Validate unique name (case-insensitive)
       const nameExists = accounts.some(
         (a) => a.name.toLowerCase() === trimmedName.toLowerCase()
       );
       if (nameExists) {
         throw new Error('Ya existe una cuenta con ese nombre');
       }
-
-      // Validate max accounts (20)
       if (accounts.length >= MAX_ACCOUNTS) {
         throw new Error(`No se pueden agregar más de ${MAX_ACCOUNTS} cuentas`);
       }
 
-      const newAccount: CashAccount = {
-        id: generateId(),
+      const { data: created } = await client.models.CashAccount.create({
         name: trimmedName,
         isActive: true,
-        balance: 0,
-      };
+        order: accounts.length,
+      } as any);
 
-      const updated = [...accounts, newAccount];
-      setAccounts(updated);
-
-      await persistAccounts(user.userId, updated);
+      if (created) {
+        setAccounts((prev) => [
+          ...prev,
+          { id: created.id, name: created.name, isActive: created.isActive, balance: 0 },
+        ]);
+      }
     },
-    [user, accounts]
+    [accounts]
   );
 
-  /**
-   * Edits the name of an existing account.
-   * Validates: name max 30 chars, unique name.
-   * Requirement: 10.4
-   */
   const editAccountName = useCallback(
     async (id: string, name: string) => {
-      if (!user) return;
-
       const trimmedName = name.trim();
 
-      // Validate name is not empty
       if (!trimmedName) {
         throw new Error('El nombre de la cuenta es obligatorio');
       }
-
-      // Validate max length (30 chars)
       if (trimmedName.length > MAX_ACCOUNT_NAME_LENGTH) {
         throw new Error(`El nombre no puede exceder ${MAX_ACCOUNT_NAME_LENGTH} caracteres`);
       }
-
-      // Validate unique name (case-insensitive), excluding current account
       const nameExists = accounts.some(
         (a) => a.id !== id && a.name.toLowerCase() === trimmedName.toLowerCase()
       );
@@ -302,73 +244,103 @@ export function useReconciliation(): UseReconciliationReturn {
         throw new Error('Ya existe una cuenta con ese nombre');
       }
 
-      const updated = accounts.map((a) =>
-        a.id === id ? { ...a, name: trimmedName } : a
-      );
-      setAccounts(updated);
-
-      await persistAccounts(user.userId, updated);
-    },
-    [user, accounts]
-  );
-
-  /**
-   * Deactivates an account (sets isActive to false).
-   * Requirement: 10.4
-   */
-  const deactivateAccount = useCallback(
-    async (id: string) => {
-      if (!user) return;
-
-      const updated = accounts.map((a) =>
-        a.id === id ? { ...a, isActive: false } : a
-      );
-      setAccounts(updated);
-
-      await persistAccounts(user.userId, updated);
-    },
-    [user, accounts]
-  );
-
-  /**
-   * Updates the balance of a specific account.
-   * Allows negative values for overdrafts (Req 10.5).
-   */
-  const updateBalance = useCallback(
-    (id: string, balance: number) => {
+      await client.models.CashAccount.update({ id, name: trimmedName } as any);
       setAccounts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, balance } : a))
+        prev.map((a) => (a.id === id ? { ...a, name: trimmedName } : a))
       );
     },
-    []
+    [accounts]
   );
 
-  /**
-   * Sets the manual adjustment value.
-   * Requirement: 10.1
-   */
+  const deactivateAccount = useCallback(async (id: string) => {
+    await client.models.CashAccount.update({ id, isActive: false } as any);
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, isActive: false } : a))
+    );
+  }, []);
+
+  const updateBalance = useCallback((id: string, balance: number) => {
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, balance } : a))
+    );
+  }, []);
+
   const setManualAdjustment = useCallback((value: number) => {
     setManualAdjustmentState(value);
   }, []);
 
-  /**
-   * Sets the automatic accumulated value (from cash flow module).
-   * Requirement: 10.2
-   */
   const setAutomaticAccumulated = useCallback((value: number) => {
     setAutomaticAccumulatedState(value);
   }, []);
 
   /**
-   * Persists the current reconciliation state.
-   * Creates CashReconciliation + CashBalance records.
-   * Requirement: 10.9
+   * Persists the current reconciliation state to DynamoDB.
    */
   const saveReconciliation = useCallback(async () => {
-    if (!user) return;
+    // Map display status to enum value
+    const statusToEnum: Record<string, string> = {
+      'Cuadrado': 'Cuadrado',
+      'Falta ubicar': 'FaltaUbicar',
+      'Sobra': 'Sobra',
+    };
 
-    await persistReconciliation(user.userId, reconciliation);
-  }, [user, reconciliation]);
+    const enumStatus = statusToEnum[reconciliation.status] ?? 'FaltaUbicar';
+
+    const input = {
+      cutoffDate: reconciliation.cutoffDate,
+      month: reconciliation.month,
+      year: reconciliation.year,
+      automaticAccumulated: reconciliation.automaticAccumulated || 0,
+      manualAdjustment: reconciliation.manualAdjustment || 0,
+      totalBase: reconciliation.totalBase || 0,
+      totalLocated: reconciliation.totalLocated || 0,
+      pendingToLocate: reconciliation.pendingToLocate || 0,
+      locatedPercentage: reconciliation.locatedPercentage || 0,
+      status: enumStatus,
+    };
+
+    console.log('Saving reconciliation with input:', input);
+
+    const result = await client.models.CashReconciliation.create(input as any);
+
+    console.log('CashReconciliation.create result:', result);
+
+    if (result.errors && result.errors.length > 0) {
+      const errorMsg = result.errors.map((e: any) => e.message).join('; ');
+      console.error('CashReconciliation create errors:', result.errors);
+      throw new Error(errorMsg);
+    }
+
+    const reconRecord = result.data;
+    if (!reconRecord) {
+      throw new Error('No se recibió respuesta al guardar la conciliación');
+    }
+
+    // Save individual balances for active accounts
+    const activeAccounts = accounts.filter((a) => a.isActive && a.balance !== 0);
+
+    if (activeAccounts.length > 0) {
+      const balanceResults = await Promise.all(
+        activeAccounts.map((acc) =>
+          client.models.CashBalance.create({
+            reconciliationId: reconRecord.id,
+            accountId: acc.id,
+            accountName: acc.name,
+            balance: acc.balance,
+          } as any)
+        )
+      );
+
+      // Check for balance creation errors
+      for (const br of balanceResults) {
+        if (br.errors && br.errors.length > 0) {
+          console.error('CashBalance create error:', br.errors);
+        }
+      }
+    }
+
+    console.log('Reconciliation saved successfully, id:', reconRecord.id);
+  }, [reconciliation, accounts]);
 
   return {
     accounts,

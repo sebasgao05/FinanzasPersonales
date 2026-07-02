@@ -9,6 +9,7 @@ import {
 import { useAuth } from './AuthContext';
 import { BASE_MONTHS, BASE_CURRENCIES } from '@/lib/utils/constants';
 import { resolveWithFallback } from '@/lib/utils/settings-fallback';
+import { client } from '@/lib/amplify-client';
 
 /**
  * User application settings (currency, year, month defaults).
@@ -28,36 +29,7 @@ export interface SettingsContextValue {
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined);
 
-// --- Mock data layer ---
-// Simulates Amplify Data client for AppSetting entity.
-// Stores settings per user in memory (resets on page reload).
-const settingsStore: Record<string, AppSettings> = {};
-
-async function loadSettings(userId: string): Promise<AppSettings | null> {
-  // Simulate async API call
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  return settingsStore[userId] ?? null;
-}
-
-async function saveSettings(userId: string, settings: AppSettings): Promise<AppSettings> {
-  // Simulate async API call
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  settingsStore[userId] = { ...settings };
-  return settingsStore[userId];
-}
-// --- End mock data layer ---
-
-// resolveWithFallback is now imported from @/lib/utils/settings-fallback
-
-/**
- * Resolves year with fallback.
- * Since years are dynamic, we just validate it's a reasonable number.
- * If the year is somehow invalid, defaults to the current year.
- */
-function resolveYearWithFallback(
-  configuredYear: number,
-  _activeYears?: readonly number[]
-): number {
+function resolveYearWithFallback(configuredYear: number): number {
   if (Number.isFinite(configuredYear) && configuredYear > 0) {
     return configuredYear;
   }
@@ -67,7 +39,7 @@ function resolveYearWithFallback(
 /** Builds default settings for first-time login (Req 16.1) */
 function buildInitialSettings(): AppSettings {
   const now = new Date();
-  const currentMonthIndex = now.getMonth(); // 0-based
+  const currentMonthIndex = now.getMonth();
   return {
     defaultCurrency: 'COP',
     defaultYear: now.getFullYear(),
@@ -83,6 +55,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   const { isAuthenticated, user } = useAuth();
 
   const [settings, setSettings] = useState<AppSettings>(buildInitialSettings());
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load or create settings when authenticated user changes
@@ -93,31 +66,39 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     }
 
     let cancelled = false;
-    const userId = user.userId;
 
     async function initSettings() {
       setIsLoading(true);
       try {
-        let loaded = await loadSettings(userId);
-
-        if (!loaded) {
-          // First login: create default settings (Req 16.1)
-          const defaults = buildInitialSettings();
-          loaded = await saveSettings(userId, defaults);
-        }
+        const { data: items } = await client.models.AppSetting.list();
 
         if (cancelled) return;
 
-        // Apply fallback resolution (Req 16.4)
-        const resolved: AppSettings = {
-          defaultCurrency: resolveWithFallback(loaded.defaultCurrency, BASE_CURRENCIES),
-          defaultYear: resolveYearWithFallback(loaded.defaultYear),
-          defaultMonth: resolveWithFallback(loaded.defaultMonth, BASE_MONTHS),
-        };
-
-        setSettings(resolved);
-      } catch {
-        // On error, keep initial defaults
+        if (items && items.length > 0) {
+          const item = items[0];
+          setSettingsId(item.id);
+          const resolved: AppSettings = {
+            defaultCurrency: resolveWithFallback(item.defaultCurrency, BASE_CURRENCIES),
+            defaultYear: resolveYearWithFallback(item.defaultYear),
+            defaultMonth: resolveWithFallback(item.defaultMonth, BASE_MONTHS),
+          };
+          setSettings(resolved);
+        } else {
+          // First login: create default settings
+          const defaults = buildInitialSettings();
+          const { data: created } = await client.models.AppSetting.create({
+            defaultCurrency: defaults.defaultCurrency,
+            defaultYear: defaults.defaultYear,
+            defaultMonth: defaults.defaultMonth,
+          });
+          if (cancelled) return;
+          if (created) {
+            setSettingsId(created.id);
+          }
+          setSettings(defaults);
+        }
+      } catch (err) {
+        console.error('Error loading settings:', err);
         setSettings(buildInitialSettings());
       } finally {
         if (!cancelled) {
@@ -136,22 +117,25 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   // Update settings: persist and apply (Req 16.3)
   const updateSettings = useCallback(
     async (updates: Partial<AppSettings>) => {
-      if (!user) return;
+      if (!settingsId) return;
 
-      const userId = user.userId;
       const merged: AppSettings = { ...settings, ...updates };
-
-      // Apply fallback on save too
       const resolved: AppSettings = {
         defaultCurrency: resolveWithFallback(merged.defaultCurrency, BASE_CURRENCIES),
         defaultYear: resolveYearWithFallback(merged.defaultYear),
         defaultMonth: resolveWithFallback(merged.defaultMonth, BASE_MONTHS),
       };
 
-      await saveSettings(userId, resolved);
+      await client.models.AppSetting.update({
+        id: settingsId,
+        defaultCurrency: resolved.defaultCurrency,
+        defaultYear: resolved.defaultYear,
+        defaultMonth: resolved.defaultMonth,
+      });
+
       setSettings(resolved);
     },
-    [settings, user]
+    [settings, settingsId]
   );
 
   const value: SettingsContextValue = {

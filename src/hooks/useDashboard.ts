@@ -1,17 +1,15 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useTransactions } from './useTransactions';
+import { useCatalogs } from './useCatalogs';
 import { totalIncome, totalExpense, balance } from '@/lib/calculations/totals';
 import { categoryDistribution } from '@/lib/calculations/distribution';
 import { safeDiv } from '@/lib/calculations/engine';
 import type { CalculationTransaction, CategoryDistribution } from '@/lib/calculations/types';
 import type { TransactionRecord } from '@/lib/utils/filtering';
-import { getTransactions, subscribe } from '@/lib/mock-store';
-
-// Uses centralized mock store (shared with useTransactions)
 
 /**
  * Dashboard KPI metrics.
- * Validates: Requirements 8.2
  */
 export interface DashboardKPIs {
   totalIncome: number;
@@ -24,19 +22,12 @@ export interface DashboardKPIs {
   expensePercentage: number;
 }
 
-/**
- * Dashboard filter state.
- * Validates: Requirements 8.1
- */
 export interface DashboardFilters {
   month: string;
   year: number;
   currency: string;
 }
 
-/**
- * Return type for the useDashboard hook.
- */
 export interface UseDashboardReturn {
   kpis: DashboardKPIs;
   distribution: CategoryDistribution[];
@@ -58,9 +49,6 @@ const EMPTY_KPIS: DashboardKPIs = {
   expensePercentage: 0,
 };
 
-/**
- * Converts TransactionRecord[] to CalculationTransaction[] for the calculation engine.
- */
 function toCalculationTransactions(records: TransactionRecord[]): CalculationTransaction[] {
   return records.map((r) => ({
     type: r.type,
@@ -72,9 +60,6 @@ function toCalculationTransactions(records: TransactionRecord[]): CalculationTra
   }));
 }
 
-/**
- * Filters transactions by month, year, and currency.
- */
 function filterByDashboard(
   transactions: TransactionRecord[],
   filters: DashboardFilters
@@ -87,27 +72,11 @@ function filterByDashboard(
   });
 }
 
-/**
- * Computes dashboard KPIs from filtered transactions.
- *
- * KPIs:
- * - totalIncome: sum of income amounts
- * - totalExpense: sum of expense amounts
- * - monthlyBalance: income - expense
- * - incomeBudget: sum of budget for income transactions
- * - expenseBudget: sum of budget for expense transactions
- * - incomeBudgetDiff: incomeBudget - totalIncome (budget minus real)
- * - expenseBudgetDiff: expenseBudget - totalExpense (budget minus real)
- * - expensePercentage: (expenses / income) * 100, 0 when income is 0
- *
- * Validates: Requirements 8.2, 8.7
- */
 function computeKPIs(transactions: CalculationTransaction[]): DashboardKPIs {
   const income = totalIncome(transactions);
   const expense = totalExpense(transactions);
   const monthlyBalance = balance(transactions);
 
-  // Calculate budget totals
   const incomeBudget = transactions
     .filter((t) => t.type === 'Ingreso')
     .reduce((acc, t) => acc + (t.budget ?? 0), 0);
@@ -118,11 +87,8 @@ function computeKPIs(transactions: CalculationTransaction[]): DashboardKPIs {
     .reduce((acc, t) => acc + (t.budget ?? 0), 0);
   const roundedExpenseBudget = Math.round(expenseBudget * 100) / 100;
 
-  // Budget differences: budget - real
   const incomeBudgetDiff = Math.round((roundedIncomeBudget - income) * 100) / 100;
   const expenseBudgetDiff = Math.round((roundedExpenseBudget - expense) * 100) / 100;
-
-  // Expense percentage: (expense / income) * 100, returns 0 when income is 0 (Req 8.7)
   const expensePercentage = Math.round(safeDiv(expense, income) * 100 * 10) / 10;
 
   return {
@@ -138,81 +104,73 @@ function computeKPIs(transactions: CalculationTransaction[]): DashboardKPIs {
 }
 
 /**
- * Hook for dashboard data: loads transactions, filters by month/year/currency,
- * computes KPIs and category distribution for the donut chart.
- *
- * Behavior:
- * - Initializes filters with user's default settings (month, year, currency)
- * - Filters transactions by month, year, and currency to compute KPIs
- * - Computes category distribution on filtered expense transactions
- * - Returns 0 for expense percentage when income is 0 (safeDiv handles this)
- *
- * Validates: Requirements 8.1, 8.2, 8.3
+ * Hook for dashboard data — connected to real Amplify Data via useTransactions.
+ * Filters by month/year/currency, computes KPIs and category distribution.
  */
 export function useDashboard(): UseDashboardReturn {
   const { settings, isLoading: settingsLoading } = useSettings();
+  const { transactions: allTransactions, isLoading: transactionsLoading } = useTransactions();
+  const { categories, concepts } = useCatalogs();
 
-  const [allTransactions, setAllTransactions] = useState<TransactionRecord[]>(getTransactions());
   const [filters, setFiltersState] = useState<DashboardFilters>({
     month: settings.defaultMonth,
     year: settings.defaultYear,
     currency: settings.defaultCurrency,
   });
 
-  // Subscribe to centralized store
-  useEffect(() => {
-    const unsubscribe = subscribe(() => {
-      setAllTransactions(getTransactions());
-    });
-    return unsubscribe;
-  }, []);
-
-  // Sync filters with settings when settings load
-  useEffect(() => {
-    if (!settingsLoading) {
-      setFiltersState({
-        month: settings.defaultMonth,
-        year: settings.defaultYear,
-        currency: settings.defaultCurrency,
-      });
-    }
-  }, [settingsLoading, settings.defaultMonth, settings.defaultYear, settings.defaultCurrency]);
-
-  // Filter transactions by dashboard filters (Req 8.3)
-  const filteredTransactions = useMemo(() => {
-    return filterByDashboard(allTransactions, filters);
-  }, [allTransactions, filters]);
-
-  // Compute KPIs from filtered transactions (Req 8.2)
-  const kpis = useMemo(() => {
-    if (filteredTransactions.length === 0) {
-      return EMPTY_KPIS;
-    }
-    const calcTransactions = toCalculationTransactions(filteredTransactions);
-    return computeKPIs(calcTransactions);
-  }, [filteredTransactions]);
-
-  // Compute category distribution for donut chart (Req 8.4)
-  const distribution = useMemo(() => {
-    if (filteredTransactions.length === 0) {
-      return [];
-    }
-    const calcTransactions = toCalculationTransactions(filteredTransactions);
-    return categoryDistribution(calcTransactions);
-  }, [filteredTransactions]);
+  // Sync filters when settings load
+  const effectiveFilters = useMemo(() => {
+    if (settingsLoading) return filters;
+    return {
+      month: filters.month || settings.defaultMonth,
+      year: filters.year || settings.defaultYear,
+      currency: filters.currency || settings.defaultCurrency,
+    };
+  }, [filters, settings, settingsLoading]);
 
   const setFilters = useCallback((newFilters: DashboardFilters) => {
     setFiltersState(newFilters);
   }, []);
 
-  // Whether there is data for the selected filters (Req 8.8)
-  const hasData = filteredTransactions.length > 0;
+  const filtered = useMemo(
+    () => filterByDashboard(allTransactions, effectiveFilters),
+    [allTransactions, effectiveFilters]
+  );
+
+  const calcTransactions = useMemo(() => {
+    // Resolve category names from catalog (fixes ID-as-name issue)
+    return filtered.map((r) => {
+      const cat = categories.find((c) => c.id === r.categoryName || c.id === r.categoryId);
+      return {
+        type: r.type,
+        amount: r.amount,
+        budget: r.budget,
+        category: cat?.name ?? r.categoryName,
+        month: r.month,
+        year: r.year,
+      };
+    });
+  }, [filtered, categories]);
+
+  const kpis = useMemo(() => {
+    if (filtered.length === 0) return EMPTY_KPIS;
+    return computeKPIs(calcTransactions);
+  }, [filtered, calcTransactions]);
+
+  const distribution = useMemo(() => {
+    const expenseTransactions = calcTransactions.filter((t) => t.type === 'Egreso');
+    if (expenseTransactions.length === 0) return [];
+    return categoryDistribution(expenseTransactions);
+  }, [calcTransactions]);
+
+  const hasData = filtered.length > 0;
+  const isLoading = settingsLoading || transactionsLoading;
 
   return {
     kpis,
     distribution,
-    filters,
-    isLoading: settingsLoading,
+    filters: effectiveFilters,
+    isLoading,
     allTransactions,
     hasData,
     setFilters,
