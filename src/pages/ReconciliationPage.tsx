@@ -80,8 +80,10 @@ export default function ReconciliationPage() {
       await saveReconciliation();
       setSaveMessage('Conciliación guardada exitosamente');
       setTimeout(() => setSaveMessage(''), 3000);
-    } catch {
-      setSaveMessage('Error al guardar la conciliación');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar la conciliación';
+      setSaveMessage(`Error: ${msg}`);
+      console.error('Save reconciliation error:', err);
     } finally {
       setIsSaving(false);
     }

@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from './useTransactions';
+import { useCatalogs } from './useCatalogs';
 import { totalIncome, totalExpense, balance } from '@/lib/calculations/totals';
 import { categoryDistribution } from '@/lib/calculations/distribution';
 import { safeDiv } from '@/lib/calculations/engine';
@@ -109,6 +110,7 @@ function computeKPIs(transactions: CalculationTransaction[]): DashboardKPIs {
 export function useDashboard(): UseDashboardReturn {
   const { settings, isLoading: settingsLoading } = useSettings();
   const { transactions: allTransactions, isLoading: transactionsLoading } = useTransactions();
+  const { categories, concepts } = useCatalogs();
 
   const [filters, setFiltersState] = useState<DashboardFilters>({
     month: settings.defaultMonth,
@@ -135,7 +137,20 @@ export function useDashboard(): UseDashboardReturn {
     [allTransactions, effectiveFilters]
   );
 
-  const calcTransactions = useMemo(() => toCalculationTransactions(filtered), [filtered]);
+  const calcTransactions = useMemo(() => {
+    // Resolve category names from catalog (fixes ID-as-name issue)
+    return filtered.map((r) => {
+      const cat = categories.find((c) => c.id === r.categoryName || c.id === r.categoryId);
+      return {
+        type: r.type,
+        amount: r.amount,
+        budget: r.budget,
+        category: cat?.name ?? r.categoryName,
+        month: r.month,
+        year: r.year,
+      };
+    });
+  }, [filtered, categories]);
 
   const kpis = useMemo(() => {
     if (filtered.length === 0) return EMPTY_KPIS;

@@ -288,32 +288,42 @@ export function useReconciliation(): UseReconciliationReturn {
       'Sobra': 'Sobra',
     };
 
-    const { data: reconRecord } = await client.models.CashReconciliation.create({
-      cutoffDate: reconciliation.cutoffDate,
-      month: reconciliation.month,
-      year: reconciliation.year,
-      automaticAccumulated: reconciliation.automaticAccumulated,
-      manualAdjustment: reconciliation.manualAdjustment,
-      totalBase: reconciliation.totalBase,
-      totalLocated: reconciliation.totalLocated,
-      pendingToLocate: reconciliation.pendingToLocate,
-      locatedPercentage: reconciliation.locatedPercentage,
-      status: statusMap[reconciliation.status] ?? 'FaltaUbicar',
-    } as any);
+    try {
+      const { data: reconRecord, errors } = await client.models.CashReconciliation.create({
+        cutoffDate: reconciliation.cutoffDate,
+        month: reconciliation.month,
+        year: reconciliation.year,
+        automaticAccumulated: reconciliation.automaticAccumulated,
+        manualAdjustment: reconciliation.manualAdjustment,
+        totalBase: reconciliation.totalBase,
+        totalLocated: reconciliation.totalLocated,
+        pendingToLocate: reconciliation.pendingToLocate,
+        locatedPercentage: reconciliation.locatedPercentage,
+        status: statusMap[reconciliation.status] ?? 'FaltaUbicar',
+      } as any);
 
-    if (reconRecord) {
-      // Save individual balances
-      const activeAccounts = accounts.filter((a) => a.isActive);
-      await Promise.all(
-        activeAccounts.map((acc) =>
-          client.models.CashBalance.create({
-            reconciliationId: reconRecord.id,
-            accountId: acc.id,
-            accountName: acc.name,
-            balance: acc.balance,
-          } as any)
-        )
-      );
+      if (errors && errors.length > 0) {
+        console.error('Error saving reconciliation:', errors);
+        throw new Error(errors[0].message);
+      }
+
+      if (reconRecord) {
+        // Save individual balances
+        const activeAccounts = accounts.filter((a) => a.isActive);
+        await Promise.all(
+          activeAccounts.map((acc) =>
+            client.models.CashBalance.create({
+              reconciliationId: reconRecord.id,
+              accountId: acc.id,
+              accountName: acc.name,
+              balance: acc.balance,
+            } as any)
+          )
+        );
+      }
+    } catch (err) {
+      console.error('saveReconciliation failed:', err);
+      throw err;
     }
   }, [reconciliation, accounts]);
 
