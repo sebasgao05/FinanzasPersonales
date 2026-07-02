@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Download } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useCatalogs } from '@/hooks/useCatalogs';
 import { useSettings } from '@/contexts/SettingsContext';
 import { pivotAggregate } from '@/lib/calculations/pivot';
 import type { PivotDimension } from '@/lib/calculations/pivot';
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button';
  */
 export default function AnalysisPage() {
   const { transactions, isLoading } = useTransactions();
+  const { categories, concepts } = useCatalogs();
   const { settings } = useSettings();
 
   // Default date range: all transactions from the default year
@@ -39,16 +41,20 @@ export default function AnalysisPage() {
 
   // Convert to CalculationTransaction for pivot engine
   const calcTransactions: CalculationTransaction[] = useMemo(() => {
-    return filteredTransactions.map((tx) => ({
-      type: tx.type,
-      amount: tx.amount,
-      budget: tx.budget,
-      category: tx.categoryName,
-      concept: tx.conceptName,
-      month: tx.month,
-      year: tx.year,
-    }));
-  }, [filteredTransactions]);
+    return filteredTransactions.map((tx) => {
+      const cat = categories.find((c) => c.id === tx.categoryName || c.id === tx.categoryId);
+      const con = concepts.find((c) => c.id === tx.conceptName || c.id === tx.conceptId);
+      return {
+        type: tx.type,
+        amount: tx.amount,
+        budget: tx.budget,
+        category: cat?.name ?? tx.categoryName,
+        concept: con?.name ?? tx.conceptName,
+        month: tx.month,
+        year: tx.year,
+      };
+    });
+  }, [filteredTransactions, categories, concepts]);
 
   // Run pivot aggregation (Req 12.2, 12.3, 12.5)
   const pivotRows = useMemo(() => {
