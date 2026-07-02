@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -62,8 +62,13 @@ export default function ReconciliationPage() {
   }, [transactions, settings.defaultCurrency]);
 
   // Update the accumulated value when transactions change
+  // Use a ref to avoid infinite re-render loops
+  const prevAccumulated = useRef(0);
   useEffect(() => {
-    setAutomaticAccumulated(calculatedAccumulated);
+    if (prevAccumulated.current !== calculatedAccumulated) {
+      prevAccumulated.current = calculatedAccumulated;
+      setAutomaticAccumulated(calculatedAccumulated);
+    }
   }, [calculatedAccumulated, setAutomaticAccumulated]);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -74,15 +79,16 @@ export default function ReconciliationPage() {
 
   // Handle save
   const handleSave = useCallback(async () => {
+    console.log('handleSave triggered');
     setIsSaving(true);
-    setSaveMessage('');
+    setSaveMessage('Guardando...');
     try {
       await saveReconciliation();
-      setSaveMessage('Conciliación guardada exitosamente');
-      setTimeout(() => setSaveMessage(''), 4000);
+      setSaveMessage('✅ Conciliación guardada exitosamente');
+      setTimeout(() => setSaveMessage(''), 5000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error desconocido al guardar';
-      setSaveMessage(`Error: ${msg}`);
+      setSaveMessage(`❌ ${msg}`);
       console.error('Save reconciliation error:', err);
     } finally {
       setIsSaving(false);
@@ -153,8 +159,8 @@ export default function ReconciliationPage() {
       {/* Save message */}
       {saveMessage && (
         <div
-          className={`text-sm px-3 py-2 rounded-md ${
-            saveMessage.includes('Error')
+          className={`text-sm px-3 py-2 rounded-md font-medium ${
+            saveMessage.includes('❌')
               ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
               : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300'
           }`}

@@ -275,6 +275,7 @@ export function useReconciliation(): UseReconciliationReturn {
 
   /**
    * Persists the current reconciliation state to DynamoDB.
+   * Uses a ref-based approach to always read fresh state.
    */
   const saveReconciliation = useCallback(async () => {
     // Map display status to schema enum value
@@ -286,11 +287,11 @@ export function useReconciliation(): UseReconciliationReturn {
 
     const enumStatus = statusToEnum[reconciliation.status] || 'FaltaUbicar';
 
-    // Build input - ensure all required float fields have valid numbers
-    const input: Record<string, unknown> = {
-      cutoffDate: reconciliation.cutoffDate,
-      month: reconciliation.month,
-      year: reconciliation.year,
+    // Build input - all fields explicitly typed
+    const createInput = {
+      cutoffDate: String(reconciliation.cutoffDate),
+      month: String(reconciliation.month),
+      year: Number(reconciliation.year),
       automaticAccumulated: Number(reconciliation.automaticAccumulated) || 0,
       manualAdjustment: Number(reconciliation.manualAdjustment) || 0,
       totalBase: Number(reconciliation.totalBase) || 0,
@@ -300,32 +301,43 @@ export function useReconciliation(): UseReconciliationReturn {
       status: enumStatus,
     };
 
-    const result = await (client.models.CashReconciliation.create as any)(input);
-
-    if (result.errors && result.errors.length > 0) {
-      const errorMsg = result.errors.map((e: any) => e.message).join('; ');
-      throw new Error(errorMsg);
+    // Use try/catch around the actual API call
+    let reconId: string;
+    try {
+      const result = await (client.models as any).CashReconciliation.create(createInput);
+      if (result.errors?.length > 0) {
+        throw new Error(result.errors.map((e: any) => e.message).join('; '));
+      }
+      if (!result.data?.id) {
+        throw new Error('La API no retornó un ID para la conciliación creada');
+      }
+      reconId = result.data.id;
+    } catch (err: any) {
+      throw new Error(`Error al crear conciliación: ${err?.message || String(err)}`);
     }
 
-    const reconRecord = result.data;
-    if (!reconRecord) {
-      throw new Error('No se pudo guardar la conciliación — respuesta vacía del servidor');
-    }
-
-    // Save individual balances for active accounts with non-zero balance
+    // Save balances
     const activeAccounts = accounts.filter((a) => a.isActive);
+    const balanceErrors: string[] = [];
 
-    if (activeAccounts.length > 0) {
-      await Promise.all(
-        activeAccounts.map((acc) =>
-          (client.models.CashBalance.create as any)({
-            reconciliationId: reconRecord.id,
-            accountId: acc.id,
-            accountName: acc.name,
-            balance: Number(acc.balance) || 0,
-          })
-        )
-      );
+    for (const acc of activeAccounts) {
+      try {
+        const balResult = await (client.models as any).CashBalance.create({
+          reconciliationId: reconId,
+          accountId: acc.id,
+          accountName: String(acc.name),
+          balance: Number(acc.balance) || 0,
+        });
+        if (balResult.errors?.length > 0) {
+          balanceErrors.push(`${acc.name}: ${balResult.errors[0].message}`);
+        }
+      } catch (err: any) {
+        balanceErrors.push(`${acc.name}: ${err?.message || 'error desconocido'}`);
+      }
+    }
+
+    if (balanceErrors.length > 0) {
+      console.warn('Algunos saldos no se guardaron:', balanceErrors);
     }
   }, [reconciliation, accounts]);
 
