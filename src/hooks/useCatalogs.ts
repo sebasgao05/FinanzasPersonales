@@ -64,7 +64,7 @@ export function useCatalogs(): UseCatalogsReturn {
   const [categories, setCategories] = useState<CatalogItem[]>([]);
   const [concepts, setConcepts] = useState<CatalogItem[]>([]);
   const [years, setYears] = useState<CatalogItem[]>([]);
-  const [currencies] = useState<CatalogItem[]>(buildBaseCurrencies());
+  const [currencies, setCurrencies] = useState<CatalogItem[]>(buildBaseCurrencies());
   const [isLoading, setIsLoading] = useState(true);
 
   const months: CatalogItem[] = buildBaseMonths();
@@ -339,15 +339,22 @@ export function useCatalogs(): UseCatalogsReturn {
   const addCurrency = useCallback(
     async (code: string) => {
       const trimmedCode = code.trim().toUpperCase();
+      if (!trimmedCode || trimmedCode.length === 0) {
+        throw new Error('El código de moneda es obligatorio');
+      }
       const exists = currencies.some((c) => c.name.toUpperCase() === trimmedCode);
       if (exists) {
         throw new Error('Esta moneda ya existe en el catálogo');
       }
-      if (!trimmedCode || trimmedCode.length === 0) {
-        throw new Error('El código de moneda es obligatorio');
-      }
-      // Currencies are local-only base items, no need for DB persistence
-      throw new Error('Solo se permiten las monedas base (COP, USD, EUR)');
+
+      const newCurrency: CatalogItem = {
+        id: `currency-custom-${trimmedCode.toLowerCase()}`,
+        name: trimmedCode,
+        isActive: true,
+        isBase: false,
+      };
+
+      setCurrencies((prev) => [...prev, newCurrency]);
     },
     [currencies]
   );
