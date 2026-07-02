@@ -5,6 +5,7 @@ import { TransactionTable } from '@/components/transactions/TransactionTable';
 import { TransactionFilters } from '@/components/transactions/TransactionFilters';
 import { EditTransactionDialog, DeleteConfirmDialog } from '@/components/transactions/EditTransactionDialog';
 import { CSVExporter } from '@/components/import-export/CSVExporter';
+import { FileImporter, type ImportedTransaction, type ImportBatchData } from '@/components/import-export/FileImporter';
 import type { TransactionRecord } from '@/lib/utils/filtering';
 import type { TransactionFormData } from '@/lib/validators/transaction';
 
@@ -38,6 +39,7 @@ export default function DataTablePage() {
     setSearchQuery,
     setSort,
     setPage,
+    createTransaction,
     updateTransaction,
     deleteTransaction,
   } = useTransactions();
@@ -96,6 +98,42 @@ export default function DataTablePage() {
     await deleteTransaction(deletingTransaction.id);
   }, [deletingTransaction, deleteTransaction]);
 
+  // Import state
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+
+  const handleImportComplete = useCallback(
+    async (transactions: ImportedTransaction[], batch: ImportBatchData) => {
+      // Create each imported transaction in DynamoDB
+      let created = 0;
+      for (const tx of transactions) {
+        try {
+          await createTransaction({
+            date: tx.date,
+            type: tx.type,
+            categoryId: tx.categoryName, // Use name as ID fallback
+            conceptId: tx.conceptName,   // Use name as ID fallback
+            categoryName: tx.categoryName,
+            conceptName: tx.conceptName,
+            detail: tx.detail,
+            budget: tx.budget,
+            amount: tx.amount,
+            currency: tx.currency,
+            notes: tx.notes,
+          });
+          created++;
+        } catch (err) {
+          console.error('Error importing transaction:', err);
+        }
+      }
+
+      setImportMessage(
+        `Importación completada: ${created} de ${batch.totalRows} transacciones creadas exitosamente.`
+      );
+      setTimeout(() => setImportMessage(null), 5000);
+    },
+    [createTransaction]
+  );
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -151,6 +189,16 @@ export default function DataTablePage() {
           onConfirm={handleDeleteConfirm}
         />
       )}
+
+      {/* Import message */}
+      {importMessage && (
+        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
+          {importMessage}
+        </div>
+      )}
+
+      {/* CSV Import */}
+      <FileImporter onImportComplete={handleImportComplete} />
     </div>
   );
 }
