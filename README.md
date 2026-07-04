@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tests](https://img.shields.io/badge/Tests-337%20passed-brightgreen?logo=vitest&logoColor=white)](#testing)
-[![License](https://img.shields.io/badge/License-Private-red)](#licencia)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 Aplicación web fullstack de gestión financiera personal construida con **React + TypeScript + Vite** y **AWS Amplify Gen 2**. Reemplaza flujos basados en hojas de cálculo con módulos interactivos para registro de transacciones, dashboards, flujo de caja, conciliación bancaria, análisis de datos y pagos recurrentes.
 
@@ -199,7 +199,7 @@ corepack prepare pnpm@latest --activate
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/david-barrera-blend/FinanzasPersonales.git
+git clone https://github.com/sebasgao05/FinanzasPersonales.git
 cd FinanzasPersonales
 
 # 2. Instalar dependencias
@@ -350,35 +350,24 @@ Ver [DEPLOY_AMPLIFY.md](./DEPLOY_AMPLIFY.md) para la guía completa de despliegu
 
 ## 🤝 Contribución
 
-1. Crea una rama desde `dev`:
-   ```bash
-   git checkout dev
-   git pull origin dev
-   git checkout -b feature/mi-feature
-   ```
+¡Las contribuciones son bienvenidas! Lee la [Guía de Contribución](./CONTRIBUTING.md) para detalles sobre:
 
-2. Implementa los cambios siguiendo las convenciones del proyecto:
-   - TypeScript estricto (no `any`)
-   - Componentes funcionales con hooks
-   - Tests para lógica de negocio
-   - Commits descriptivos en español
+- Configuración del entorno de desarrollo
+- Flujo de trabajo con Git (ramas, commits, PRs)
+- Convenciones de código y naming
+- Cómo reportar bugs y sugerir mejoras
 
-3. Ejecuta validaciones antes del PR:
-   ```bash
-   pnpm lint
-   pnpm test
-   pnpm build
-   ```
+**Resumen rápido:**
 
-4. Abre un Pull Request hacia `dev`
+```bash
+git checkout dev && git pull origin dev
+git checkout -b feature/mi-feature
+# ... desarrolla ...
+pnpm lint && pnpm test && pnpm build
+# Abre PR hacia dev
+```
 
-### Convenciones de código
-
-- **Idioma del código**: Inglés (variables, funciones, componentes)
-- **Idioma de la UI**: Español (labels, mensajes, documentación)
-- **Estilo**: Tailwind CSS utility-first, sin CSS modules
-- **Estado**: Hooks personalizados (no Redux/Zustand)
-- **Data fetching**: Amplify Data client (typed, real-time)
+Este proyecto sigue el [Código de Conducta](./CODE_OF_CONDUCT.md).
 
 ---
 
@@ -388,9 +377,13 @@ Ver [TESTING_LOCAL.md](./TESTING_LOCAL.md) para la guía de validación funciona
 
 ---
 
+## 🔐 Seguridad
+
+Si descubres una vulnerabilidad, **no la reportes como Issue público**. Lee la [Política de Seguridad](./SECURITY.md) para el proceso adecuado.
+
 ## 📄 Licencia
 
-Privado — Uso personal. Todos los derechos reservados.
+Este proyecto está bajo la [Licencia MIT](./LICENSE). Puedes usarlo, modificarlo y distribuirlo libremente.
 
 ---
 

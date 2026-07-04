@@ -95,7 +95,7 @@ aws sts get-caller-identity
 
 ```bash
 # Clonar
-git clone https://github.com/david-barrera-blend/FinanzasPersonales.git
+git clone https://github.com/sebasgao05/FinanzasPersonales.git
 cd FinanzasPersonales
 
 # Instalar dependencias
