@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, EyeOff, Check, X } from 'lucide-react';
+import { Plus, Pencil, EyeOff, Eye, Check, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { CashAccount } from '@/hooks/useReconciliation';
 
@@ -9,6 +9,8 @@ interface AccountBalancesProps {
   onAddAccount: (name: string) => Promise<void>;
   onEditAccountName: (id: string, name: string) => Promise<void>;
   onDeactivateAccount: (id: string) => Promise<void>;
+  onReactivateAccount: (id: string) => Promise<void>;
+  onReorderAccounts: (fromIndex: number, toIndex: number) => Promise<void>;
 }
 
 /**
@@ -23,6 +25,8 @@ export default function AccountBalances({
   onAddAccount,
   onEditAccountName,
   onDeactivateAccount,
+  onReactivateAccount,
+  onReorderAccounts,
 }: AccountBalancesProps) {
   const [newAccountName, setNewAccountName] = useState('');
   const [addError, setAddError] = useState('');
@@ -91,7 +95,7 @@ export default function AccountBalances({
 
       {/* Active accounts */}
       <div className="space-y-2">
-        {activeAccounts.map((account) => (
+        {activeAccounts.map((account, index) => (
           <div
             key={account.id}
             className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 group"
@@ -126,6 +130,49 @@ export default function AccountBalances({
             ) : (
               // Display mode
               <>
+                {/* Reorder buttons */}
+                <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => {
+                      const globalIndex = accounts.indexOf(account);
+                      const prevActiveIndex = accounts.findIndex(
+                        (a, i) => i < globalIndex && a.isActive
+                      );
+                      if (globalIndex > 0) {
+                        // Find the previous active account's global index
+                        const activeGlobalIndices = accounts
+                          .map((a, i) => (a.isActive ? i : -1))
+                          .filter((i) => i >= 0);
+                        const currentPos = activeGlobalIndices.indexOf(globalIndex);
+                        if (currentPos > 0) {
+                          onReorderAccounts(globalIndex, activeGlobalIndices[currentPos - 1]);
+                        }
+                      }
+                    }}
+                    disabled={index === 0}
+                    className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Subir"
+                  >
+                    <ArrowUp className="size-3" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const globalIndex = accounts.indexOf(account);
+                      const activeGlobalIndices = accounts
+                        .map((a, i) => (a.isActive ? i : -1))
+                        .filter((i) => i >= 0);
+                      const currentPos = activeGlobalIndices.indexOf(globalIndex);
+                      if (currentPos < activeGlobalIndices.length - 1) {
+                        onReorderAccounts(globalIndex, activeGlobalIndices[currentPos + 1]);
+                      }
+                    }}
+                    disabled={index === activeAccounts.length - 1}
+                    className="p-0.5 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Bajar"
+                  >
+                    <ArrowDown className="size-3" />
+                  </button>
+                </div>
                 <span className="w-28 sm:w-36 text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                   {account.name}
                 </span>
@@ -173,14 +220,21 @@ export default function AccountBalances({
             {inactiveAccounts.map((account) => (
               <div
                 key={account.id}
-                className="flex items-center gap-2 px-2 py-1 opacity-50"
+                className="flex items-center gap-2 px-2 py-1 group"
               >
-                <span className="text-sm text-gray-400 line-through">
+                <span className="text-sm text-gray-400 line-through flex-1">
                   {account.name}
                 </span>
                 <span className="text-xs px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded">
                   Inactiva
                 </span>
+                <button
+                  onClick={() => onReactivateAccount(account.id)}
+                  className="p-1 text-gray-400 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Reactivar cuenta"
+                >
+                  <Eye className="size-3.5" />
+                </button>
               </div>
             ))}
           </div>

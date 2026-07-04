@@ -10,7 +10,7 @@ import { BASE_MONTHS } from '@/lib/utils/constants';
  * Dashboard page with KPIs, charts, and filters.
  * Shows financial summary with filterable metrics and visualizations.
  *
- * - Filters: Mes, Año, Moneda precargados con valores predeterminados del usuario
+ * - Filters: Mes, Año, Moneda, Categoría precargados con valores predeterminados del usuario
  * - KPIs: 8 tarjetas de métricas financieras
  * - Gráficas: Dona (distribución egresos), Barras (ingresos vs egresos), Tendencia mensual
  * - Estado vacío cuando no hay transacciones para los filtros seleccionados
@@ -20,7 +20,7 @@ import { BASE_MONTHS } from '@/lib/utils/constants';
 export default function DashboardPage() {
   const { kpis, distribution, filters, isLoading, allTransactions, hasData, setFilters } =
     useDashboard();
-  const { years: catalogYears, currencies: catalogCurrencies, isLoading: catalogsLoading } =
+  const { years: catalogYears, currencies: catalogCurrencies, categories: catalogCategories, isLoading: catalogsLoading } =
     useCatalogs();
 
   // Build year options: use catalog years if available, otherwise generate current year ± 5
@@ -54,7 +54,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Filters: Mes, Año, Moneda (Req 8.1) */}
+      {/* Filters: Mes, Año, Moneda, Categoría (Req 8.1) */}
       <div className="flex flex-wrap gap-4">
         <div className="flex flex-col">
           <label htmlFor="filter-month" className="mb-1 text-xs font-medium text-gray-600">
@@ -107,6 +107,27 @@ export default function DashboardPage() {
                 {currency}
               </option>
             ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col">
+          <label htmlFor="filter-category" className="mb-1 text-xs font-medium text-gray-600">
+            Categoría
+          </label>
+          <select
+            id="filter-category"
+            value={filters.categoryId}
+            onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Todas</option>
+            {catalogCategories
+              .filter((c) => c.isActive)
+              .map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
           </select>
         </div>
       </div>

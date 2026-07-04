@@ -37,6 +37,8 @@ export default function ReconciliationPage() {
     addAccount,
     editAccountName,
     deactivateAccount,
+    reactivateAccount,
+    reorderAccounts,
     updateBalance,
     setManualAdjustment,
     setAutomaticAccumulated,
@@ -235,6 +237,8 @@ export default function ReconciliationPage() {
           onAddAccount={addAccount}
           onEditAccountName={editAccountName}
           onDeactivateAccount={deactivateAccount}
+          onReactivateAccount={reactivateAccount}
+          onReorderAccounts={reorderAccounts}
         />
 
         {/* Distribution Chart */}

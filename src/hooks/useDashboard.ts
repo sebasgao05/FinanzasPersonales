@@ -26,6 +26,7 @@ export interface DashboardFilters {
   month: string;
   year: number;
   currency: string;
+  categoryId: string;
 }
 
 export interface UseDashboardReturn {
@@ -68,6 +69,7 @@ function filterByDashboard(
     if (t.month !== filters.month) return false;
     if (t.year !== filters.year) return false;
     if (t.currency !== filters.currency) return false;
+    if (filters.categoryId && t.categoryId !== filters.categoryId && t.categoryName !== filters.categoryId) return false;
     return true;
   });
 }
@@ -116,6 +118,7 @@ export function useDashboard(): UseDashboardReturn {
     month: settings.defaultMonth,
     year: settings.defaultYear,
     currency: settings.defaultCurrency,
+    categoryId: '',
   });
 
   // Sync filters when settings load
@@ -125,6 +128,7 @@ export function useDashboard(): UseDashboardReturn {
       month: filters.month || settings.defaultMonth,
       year: filters.year || settings.defaultYear,
       currency: filters.currency || settings.defaultCurrency,
+      categoryId: filters.categoryId || '',
     };
   }, [filters, settings, settingsLoading]);
 
