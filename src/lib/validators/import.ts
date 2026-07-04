@@ -14,7 +14,7 @@ export const REQUIRED_IMPORT_COLUMNS = [
   'Concepto',
   'Detalle',
   'Presupuesto',
-  'Monto real',
+  'Monto',
   'Moneda',
   'Notas',
 ];
@@ -41,6 +41,7 @@ const VALID_TYPES = ['Ingreso', 'Egreso'];
 
 /**
  * Valida que las columnas del archivo contengan todas las columnas requeridas.
+ * Accepts both "Monto" and "Monto real" for backward compatibility.
  * Requirement 7.1
  */
 export function validateImportColumns(headers: string[]): ImportFileValidationResult {
@@ -48,7 +49,12 @@ export function validateImportColumns(headers: string[]): ImportFileValidationRe
   const normalizedHeaders = headers.map((h) => h.trim());
 
   for (const required of REQUIRED_IMPORT_COLUMNS) {
-    if (!normalizedHeaders.includes(required)) {
+    // "Monto" column accepts both "Monto" and legacy "Monto real"
+    if (required === 'Monto') {
+      if (!normalizedHeaders.includes('Monto') && !normalizedHeaders.includes('Monto real')) {
+        errors.push(`Columna requerida faltante: "${required}"`);
+      }
+    } else if (!normalizedHeaders.includes(required)) {
       errors.push(`Columna requerida faltante: "${required}"`);
     }
   }
@@ -148,13 +154,13 @@ export function validateImportRow(
     });
   }
 
-  // Validar Monto real
-  const montoStr = (row['Monto real'] ?? '').trim();
+  // Validar Monto
+  const montoStr = (row['Monto'] ?? row['Monto real'] ?? '').trim();
   const monto = Number(montoStr);
   if (montoStr === '' || isNaN(monto) || monto <= 0) {
     errors.push({
       row: rowNumber,
-      field: 'Monto real',
+      field: 'Monto',
       message: 'El monto debe ser un número mayor a 0',
     });
   }

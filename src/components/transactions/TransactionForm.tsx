@@ -23,8 +23,13 @@ interface FormState {
   notes: string;
 }
 
+function getTodayISO(): string {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
+}
+
 const INITIAL_FORM_STATE: FormState = {
-  date: '',
+  date: getTodayISO(),
   type: '',
   categoryId: '',
   conceptId: '',
@@ -158,6 +163,7 @@ export function TransactionForm({ onSave }: TransactionFormProps) {
   const resetForm = useCallback(() => {
     setForm({
       ...INITIAL_FORM_STATE,
+      date: getTodayISO(),
       currency: settings.defaultCurrency || 'COP',
     });
     setErrors({});
@@ -208,9 +214,10 @@ export function TransactionForm({ onSave }: TransactionFormProps) {
           await onSave({ ...data, month, year });
         }
 
-        // Keep tipo, categoría, moneda - clear the rest
+        // Keep tipo, categoría, moneda - clear the rest, date defaults to today
         setForm((prev) => ({
           ...INITIAL_FORM_STATE,
+          date: getTodayISO(),
           type: prev.type,
           categoryId: prev.categoryId,
           currency: prev.currency,

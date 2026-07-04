@@ -300,7 +300,7 @@ export function FileImporter({ onImportComplete }: FileImporterProps) {
         conceptName: row['Concepto'].trim(),
         detail: row['Detalle']?.trim() || undefined,
         budget: budget && !isNaN(budget) && budget > 0 ? budget : undefined,
-        amount: parseFloat(row['Monto real'].trim()),
+        amount: parseFloat((row['Monto'] ?? row['Monto real'] ?? '').trim()),
         currency: row['Moneda']?.trim() || 'COP',
         notes: row['Notas']?.trim() || undefined,
       };

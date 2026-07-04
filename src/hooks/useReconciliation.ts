@@ -39,6 +39,8 @@ export interface UseReconciliationReturn {
   addAccount: (name: string) => Promise<void>;
   editAccountName: (id: string, name: string) => Promise<void>;
   deactivateAccount: (id: string) => Promise<void>;
+  reactivateAccount: (id: string) => Promise<void>;
+  reorderAccounts: (fromIndex: number, toIndex: number) => Promise<void>;
   updateBalance: (id: string, balance: number) => void;
   setManualAdjustment: (value: number) => void;
   setAutomaticAccumulated: (value: number) => void;
@@ -303,6 +305,30 @@ export function useReconciliation(): UseReconciliationReturn {
     );
   }, []);
 
+  const reactivateAccount = useCallback(async (id: string) => {
+    await client.models.CashAccount.update({ id, isActive: true } as any);
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, isActive: true } : a))
+    );
+  }, []);
+
+  const reorderAccounts = useCallback(async (fromIndex: number, toIndex: number) => {
+    setAccounts((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+
+    // Persist new order to DB
+    setAccounts((prev) => {
+      prev.forEach((acc, idx) => {
+        client.models.CashAccount.update({ id: acc.id, order: idx } as any).catch(() => {});
+      });
+      return prev;
+    });
+  }, []);
+
   const updateBalance = useCallback((id: string, balance: number) => {
     setAccounts((prev) =>
       prev.map((a) => (a.id === id ? { ...a, balance } : a))
@@ -392,6 +418,8 @@ export function useReconciliation(): UseReconciliationReturn {
     addAccount,
     editAccountName,
     deactivateAccount,
+    reactivateAccount,
+    reorderAccounts,
     updateBalance,
     setManualAdjustment,
     setAutomaticAccumulated,

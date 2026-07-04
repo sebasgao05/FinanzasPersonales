@@ -27,7 +27,7 @@ export const IMPORT_TEMPLATE_COLUMNS = [
   'Concepto',
   'Detalle',
   'Presupuesto',
-  'Monto real',
+  'Monto',
   'Moneda',
   'Notas',
 ];
