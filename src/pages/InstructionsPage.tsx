@@ -21,19 +21,19 @@ interface InstructionCard {
 const instructionCards: InstructionCard[] = [
   {
     step: 1,
-    title: 'Registrar ingresos y egresos',
-    description:
-      'Registra tus transacciones diarias indicando tipo, categoría, concepto y monto para mantener un control detallado de tus finanzas.',
-    path: '/ingreso',
-    icon: PlusCircle,
-  },
-  {
-    step: 2,
     title: 'Configurar listas maestras',
     description:
       'Administra las categorías, conceptos, monedas y demás catálogos que se usan en los formularios de la aplicación.',
     path: '/catalogos',
     icon: List,
+  },
+  {
+    step: 2,
+    title: 'Registrar ingresos y egresos',
+    description:
+      'Registra tus transacciones diarias indicando tipo, categoría, concepto y monto para mantener un control detallado de tus finanzas.',
+    path: '/ingreso',
+    icon: PlusCircle,
   },
   {
     step: 3,

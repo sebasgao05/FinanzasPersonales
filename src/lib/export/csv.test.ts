@@ -21,7 +21,7 @@ describe('IMPORT_TEMPLATE_COLUMNS', () => {
   it('contains expected import template headers', () => {
     expect(IMPORT_TEMPLATE_COLUMNS).toEqual([
       'Fecha', 'Tipo', 'Categoría', 'Concepto', 'Detalle',
-      'Presupuesto', 'Monto real', 'Moneda', 'Notas',
+      'Presupuesto', 'Monto', 'Moneda', 'Notas',
     ]);
   });
 });
@@ -126,7 +126,7 @@ describe('generateImportTemplate', () => {
 
   it('contains all import template column headers', () => {
     const template = generateImportTemplate();
-    expect(template).toBe('Fecha,Tipo,Categoría,Concepto,Detalle,Presupuesto,Monto real,Moneda,Notas');
+    expect(template).toBe('Fecha,Tipo,Categoría,Concepto,Detalle,Presupuesto,Monto,Moneda,Notas');
   });
 });
 

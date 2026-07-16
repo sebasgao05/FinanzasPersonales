@@ -136,12 +136,14 @@ export function useReconciliation(): UseReconciliationReturn {
         let loadedAccounts: CashAccount[];
 
         if (items && items.length > 0) {
-          loadedAccounts = items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            isActive: item.isActive,
-            balance: 0,
-          }));
+          loadedAccounts = [...items]
+            .sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0))
+            .map((item) => ({
+              id: item.id,
+              name: item.name,
+              isActive: item.isActive,
+              balance: 0,
+            }));
         } else {
           // First time: create default accounts in DB
           const defaults = buildDefaultAccounts();
