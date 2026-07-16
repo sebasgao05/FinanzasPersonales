@@ -29,3 +29,7 @@ amplify_outputs.json
 
 # npm (no longer used)
 package-lock.json
+
+# kiro
+.kiro
+.kirograph
