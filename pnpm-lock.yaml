@@ -731,6 +731,13 @@ packages:
       - jsonschema
       - semver
 
+  '@aws-cdk/cloud-assembly-schema@54.8.0':
+    resolution: {integrity: sha512-f891G+Uv4x0/PWTYkA7psEoxHj4//uXEYklB853uFZVHq2zwoH5Eko+uL07wUXZsUiXpZZl8c72KJVnEidR+zg==}
+    engines: {node: '>= 18.0.0'}
+    bundledDependencies:
+      - jsonschema
+      - semver
+
   '@aws-cdk/cloudformation-diff@2.187.2':
     resolution: {integrity: sha512-+B6OmBtMxtl0wkPsNNtVZjuoy8b2A1tou66yrR+lXgFq2czA6S0t9sUjsTP/UVuUnQRiFWJVP3UuMiZuVDNZ2A==}
     engines: {node: '>= 18.0.0'}
@@ -4935,6 +4942,10 @@ packages:
     resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
     engines: {node: '>=12'}
 
+  picomatch@4.0.5:
+    resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
+    engines: {node: '>=12'}
+
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -6787,6 +6798,8 @@ snapshots:
   '@aws-cdk/cloud-assembly-schema@54.10.0': {}
 
   '@aws-cdk/cloud-assembly-schema@54.6.0': {}
+
+  '@aws-cdk/cloud-assembly-schema@54.8.0': {}
 
   '@aws-cdk/cloudformation-diff@2.187.2(@aws-sdk/client-cloudformation@3.1077.0)':
     dependencies:
@@ -11348,6 +11361,8 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@2.3.2: {}
+
+  picomatch@4.0.5: {}
 
   picomatch@4.0.5: {}
 
