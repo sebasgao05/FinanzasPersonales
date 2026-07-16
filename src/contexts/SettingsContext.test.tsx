@@ -5,6 +5,23 @@ import { SettingsProvider, useSettings } from './SettingsContext';
 import { AuthContext } from './AuthContext';
 import type { AuthUser } from 'aws-amplify/auth';
 
+// Mock the Amplify client
+const mockAppSettingList = vi.fn();
+const mockAppSettingCreate = vi.fn();
+const mockAppSettingUpdate = vi.fn();
+
+vi.mock('@/lib/amplify-client', () => ({
+  client: {
+    models: {
+      AppSetting: {
+        list: (...args: unknown[]) => mockAppSettingList(...args),
+        create: (...args: unknown[]) => mockAppSettingCreate(...args),
+        update: (...args: unknown[]) => mockAppSettingUpdate(...args),
+      },
+    },
+  },
+}));
+
 // Helper to create a wrapper with AuthContext mocked
 function createWrapper(authValue: {
   user: AuthUser | null;
@@ -43,6 +60,21 @@ const unauthenticatedContext = {
 describe('SettingsContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default mock behavior: first login (no existing settings)
+    mockAppSettingList.mockResolvedValue({ data: [] });
+    mockAppSettingCreate.mockResolvedValue({
+      data: {
+        id: 'settings-test-id',
+        defaultCurrency: 'COP',
+        defaultYear: new Date().getFullYear(),
+        defaultMonth: [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+        ][new Date().getMonth()],
+      },
+    });
+    mockAppSettingUpdate.mockResolvedValue({ data: { id: 'settings-test-id' } });
   });
 
   it('provides initial default settings when user is authenticated (first login)', async () => {
