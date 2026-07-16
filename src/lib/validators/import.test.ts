@@ -189,7 +189,7 @@ describe('validateImportRow', () => {
     const result = validateImportRow(row, 7);
     expect(result.isValid).toBe(false);
     expect(result.errors).toContainEqual(
-      expect.objectContaining({ field: 'Monto real' })
+      expect.objectContaining({ field: 'Monto' })
     );
   });
 
@@ -198,7 +198,7 @@ describe('validateImportRow', () => {
     const result = validateImportRow(row, 8);
     expect(result.isValid).toBe(false);
     expect(result.errors).toContainEqual(
-      expect.objectContaining({ field: 'Monto real' })
+      expect.objectContaining({ field: 'Monto' })
     );
   });
 
@@ -207,7 +207,7 @@ describe('validateImportRow', () => {
     const result = validateImportRow(row, 9);
     expect(result.isValid).toBe(false);
     expect(result.errors).toContainEqual(
-      expect.objectContaining({ field: 'Monto real' })
+      expect.objectContaining({ field: 'Monto' })
     );
   });
 

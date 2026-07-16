@@ -296,10 +296,10 @@ export function RecurringForm({ onSave, onCancel, initialData }: RecurringFormPr
           )}
         </div>
 
-        {/* Estimated amount field */}
+        {/* Estimated amount / budget field */}
         <div className="space-y-1">
           <label htmlFor="rp-amount" className="text-sm font-medium">
-            Monto estimado <span className="text-destructive">*</span>
+            Presupuesto <span className="text-destructive">*</span>
           </label>
           <input
             id="rp-amount"
@@ -314,6 +314,9 @@ export function RecurringForm({ onSave, onCancel, initialData }: RecurringFormPr
               errors.estimatedAmount ? 'border-destructive' : 'border-border'
             } bg-background focus:outline-none focus:ring-2 focus:ring-ring`}
           />
+          <p className="text-xs text-muted-foreground">
+            Monto previsto para este pago recurrente
+          </p>
           {errors.estimatedAmount && (
             <p className="text-xs text-destructive">{errors.estimatedAmount}</p>
           )}

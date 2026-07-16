@@ -19,8 +19,9 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 /**
  * List/table showing all recurring payments with actions.
- * Columns: Nombre, Tipo, Categoría, Monto, Día pago, Frecuencia, Estado
- * Actions: Generar (disabled if inactive), Editar, Activar/Desactivar, Eliminar
+ * Desktop: table layout. Mobile: card layout for usability.
+ * The estimatedAmount doubles as "Presupuesto" since recurring payments
+ * represent planned/budgeted expenses.
  *
  * Requirements: 13.2, 13.5, 13.6
  */
@@ -63,8 +64,105 @@ export function RecurringList({
 
   return (
     <>
-      {/* Desktop table view */}
-      <div className="border border-border rounded-lg overflow-hidden">
+      {/* Mobile card view - visible only on small screens */}
+      <div className="space-y-3 md:hidden">
+        {payments.map((payment) => (
+          <div
+            key={payment.id}
+            className="rounded-lg border border-border bg-card p-4 space-y-3"
+          >
+            {/* Header: name + status */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm truncate">{payment.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {payment.categoryName} · {payment.conceptName}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    payment.type === 'Ingreso'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                  }`}
+                >
+                  {payment.type}
+                </span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    payment.isActive
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  }`}
+                >
+                  {payment.isActive ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+            </div>
+
+            {/* Details row */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span className="text-muted-foreground block">Presupuesto</span>
+                <span className="font-mono font-medium">
+                  ${payment.estimatedAmount.toLocaleString('es-CO', { minimumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Día pago</span>
+                <span className="font-medium">{payment.payDay}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block">Frecuencia</span>
+                <span className="font-medium">
+                  {FREQUENCY_LABELS[payment.frequency] || payment.frequency}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions - full width buttons for easy mobile tap */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => onGenerate(payment)}
+                disabled={!payment.isActive}
+                className="w-full text-xs"
+              >
+                Generar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onEdit(payment)}
+                className="w-full text-xs"
+              >
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onToggleActive(payment.id)}
+                className="w-full text-xs"
+              >
+                {payment.isActive ? 'Desactivar' : 'Activar'}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleDeleteClick(payment.id)}
+                className="w-full text-xs"
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table view - hidden on mobile */}
+      <div className="hidden md:block border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
@@ -72,7 +170,7 @@ export function RecurringList({
                 <th className="text-left px-4 py-3 font-medium">Nombre</th>
                 <th className="text-left px-4 py-3 font-medium">Tipo</th>
                 <th className="text-left px-4 py-3 font-medium">Categoría</th>
-                <th className="text-right px-4 py-3 font-medium">Monto</th>
+                <th className="text-right px-4 py-3 font-medium">Presupuesto</th>
                 <th className="text-center px-4 py-3 font-medium">Día pago</th>
                 <th className="text-left px-4 py-3 font-medium">Frecuencia</th>
                 <th className="text-center px-4 py-3 font-medium">Estado</th>
@@ -127,7 +225,6 @@ export function RecurringList({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1 flex-wrap">
-                      {/* Generate button - disabled if inactive (Req 13.5) */}
                       <Button
                         size="xs"
                         variant="default"
@@ -173,7 +270,7 @@ export function RecurringList({
 
       {/* Delete confirmation dialog (Req 13.6) */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/50"
             onClick={handleDeleteCancel}

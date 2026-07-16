@@ -3,46 +3,28 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "chore"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
+      interval: "monthly"
+    target-branch: "dev"
     groups:
-      aws-amplify:
+      linting:
         patterns:
-          - "@aws-amplify/*"
-          - "aws-amplify"
-        update-types:
-          - "minor"
-          - "patch"
-      react:
-        patterns:
-          - "react"
-          - "react-dom"
-          - "@types/react"
-          - "@types/react-dom"
+          - "eslint*"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "eslint-plugin-*"
       testing:
         patterns:
           - "vitest"
-          - "@testing-library/*"
           - "fast-check"
+          - "@testing-library/*"
           - "jsdom"
-      linting:
-        patterns:
-          - "eslint"
-          - "eslint-*"
-          - "typescript-eslint"
+      dependencies:
+        exclude-patterns:
+          - "eslint*"
           - "@eslint/*"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "ci"
+          - "typescript-eslint"
+          - "eslint-plugin-*"
+          - "vitest"
+          - "fast-check"
+          - "@testing-library/*"
+          - "jsdom"

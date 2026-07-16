@@ -71,3 +71,29 @@ Esta política aplica al código fuente del repositorio y la infraestructura def
 - La infraestructura AWS subyacente (gestionar con AWS)
 - Vulnerabilidades en dependencias de terceros (reportar upstream)
 - Phishing u otros ataques de ingeniería social
+
+## Vulnerabilidades conocidas y aceptadas
+
+### Dependencias transitivas de AWS Amplify (Julio 2026)
+
+Las siguientes alertas de Dependabot han sido evaluadas y aceptadas como riesgo tolerable:
+
+| Paquete | Versión | CVE/GHSA | Decisión | Razón |
+|---------|---------|----------|----------|-------|
+| handlebars | 4.7.7 | GHSA-* (7 alertas) | Aceptada | Solo codegen GraphQL, no runtime |
+| lodash | 4.17.23 | GHSA-* (2 alertas) | Aceptada | Solo build de Amplify, no runtime |
+| immutable | 3.7.6 | GHSA-* (1 alerta) | Aceptada | Solo uso interno de Amplify |
+
+### Justificación
+
+- Estas dependencias son transitivas de `@aws-amplify` (codegen y build tooling)
+- No se incluyen en el bundle de producción
+- No procesan input de usuarios en runtime
+- Para explotarlas se requiere acceso al pipeline de CI/CD
+
+### Plan de remediación
+
+- Actualizar `@aws-amplify` cuando AWS publique versiones con estas deps parcheadas
+- Revisar si se agregan features de backend que expongan estas librerías a input externo
+
+### Última revisión: 2026-07-05
