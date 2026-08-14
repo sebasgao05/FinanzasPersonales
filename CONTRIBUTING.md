@@ -8,6 +8,7 @@
 - [¿Cómo puedo contribuir?](#cómo-puedo-contribuir)
 - [Configuración del entorno](#configuración-del-entorno)
 - [Flujo de trabajo](#flujo-de-trabajo)
+- [Etiquetado de recursos AWS (Cost Allocation)](#etiquetado-de-recursos-aws-cost-allocation)
 - [Convenciones de código](#convenciones-de-código)
 - [Convenciones de commits](#convenciones-de-commits)
 - [Pull Requests](#pull-requests)
@@ -121,6 +122,58 @@ main ← dev ← feature/mi-feature
 | `refactor/` | Refactorización sin cambio funcional |
 | `test/` | Solo tests |
 | `chore/` | Mantenimiento (deps, config) |
+
+---
+
+## Etiquetado de recursos AWS (Cost Allocation)
+
+Este proyecto utiliza **tags de asignación de costos** para separar la facturación en AWS. Todos los recursos creados por el backend (Cognito, AppSync, DynamoDB, IAM, etc.) se etiquetan automáticamente.
+
+### Tags aplicadas
+
+| Tag Key | Valor | Propósito |
+|---------|-------|-----------|
+| `project:name` | `finanzas-personales` | Identifica el proyecto |
+| `project:environment` | `production` | Distingue ambientes |
+| `project:owner` | `sebasgao05` | Responsable del proyecto |
+| `project:cost-center` | `finanzas-personales` | Centro de costo para facturación |
+| `project:managed-by` | `amplify-gen2` | Herramienta que gestiona los recursos |
+
+### Cómo funciona
+
+Las tags se definen en `amplify/backend.ts` usando la clase `Tags` de AWS CDK. Se aplican al stack raíz del backend, lo que las propaga automáticamente a **todos** los recursos hijos.
+
+```typescript
+import { Tags } from 'aws-cdk-lib';
+
+const backend = defineBackend({ auth, data });
+const tags = Tags.of(backend.stack);
+
+tags.add('project:name', 'finanzas-personales');
+```
+
+### Activar tags en AWS Billing
+
+Para que las tags aparezcan en los reportes de costos:
+
+1. Ve a **AWS Billing Console** → **Cost Allocation Tags**
+2. Busca las tags con prefijo `project:`
+3. Selecciónalas y haz clic en **Activate**
+4. Espera ~24 horas para que aparezcan en **Cost Explorer**
+
+### Reglas para contribuidores
+
+- **NO eliminar** las tags existentes en `backend.ts`
+- Si agregas un nuevo stack personalizado (`backend.createStack()`), las tags se propagan automáticamente
+- Si necesitas agregar tags adicionales para un recurso específico, usa `Tags.of(recurso).add()`
+- Las tags con prefijo `amplify:` son gestionadas automáticamente por Amplify — no las modifiques
+
+### Ver costos filtrados por proyecto
+
+Una vez activadas las tags:
+1. Ve a **AWS Cost Explorer**
+2. En filtros, selecciona **Tag** → `project:name` → `finanzas-personales`
+3. Podrás ver el desglose de costos exclusivo de este proyecto
 
 ---
 
