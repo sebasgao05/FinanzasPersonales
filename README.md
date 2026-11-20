@@ -128,12 +128,16 @@ Aplicación web fullstack de gestión financiera personal construida con **React
 
 | Servicio | Recurso | ID/ARN |
 |----------|---------|--------|
-| Cognito | User Pool | `us-east-1_xZVIjP3Fz` |
-| Cognito | Identity Pool | `us-east-1:91ba2fa8-d71e-49f9-b21a-61373d3a175a` |
-| Cognito | App Client | `3r2aqj4u729k4lrj0j2986st7f` |
-| AppSync | GraphQL API | `zwa4u3zsvzcyzn6obtlmmqk27u` |
-| CloudFormation | Root Stack | `amplify-finanzaspersonales-DavidBarrera-sandbox-324d7a4417` |
-| DynamoDB | 9 tablas | Auto-named por Amplify |
+Ambiente único: `main` (producción), región `us-east-1`. Todos los recursos llevan la etiqueta `Project = finanzas personales`. Detalle completo en [docs/AMPLIFY_BACKEND_RESOURCES.md](./docs/AMPLIFY_BACKEND_RESOURCES.md).
+
+| Servicio | Recurso | ID/ARN |
+|----------|---------|--------|
+| Cognito | User Pool | `us-east-1_TcHewiDNh` |
+| Cognito | Identity Pool | `us-east-1:1c77bbe8-f3fb-45d1-9601-7fdb1e9378c7` |
+| Cognito | App Client | `1gqteev00f9ha1pn4a3enli0og` |
+| AppSync | GraphQL API | `kfceolndabfv5dhp44qdbug4lm` |
+| CloudFormation | Root Stack | `amplify-d1i9b3ymodzvtk-main-branch-11a71e7e87` |
+| DynamoDB | 9 tablas | `<Modelo>-kfceolndabfv5dhp44qdbug4lm-NONE` |
 | S3 | Static Assets | Managed by Amplify Hosting |
 | CloudFront | Distribution | Managed by Amplify Hosting |
 

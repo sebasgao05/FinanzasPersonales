@@ -229,21 +229,15 @@ Cada `git push` a la branch conectada dispara un redeploy automático (~3-5 min)
 
 ## 6. Ambientes (Branches)
 
-Amplify Gen 2 soporta múltiples ambientes — cada branch tiene su propio stack aislado:
+Este proyecto usa **un solo ambiente en AWS: `main` (producción)**. La rama `dev` se desconectó de Amplify el 2026-11-20 y su backend se eliminó.
 
 | Branch | Ambiente | Recursos |
 |--------|----------|----------|
 | `main` | Producción | Cognito + DynamoDB + AppSync propios |
-| `dev` | Desarrollo | Stack completamente separado |
 
-### Conectar rama `dev`
+Para desarrollar y probar se usa el **sandbox local** (sección 4), que no toca los datos de `main`.
 
-1. En Amplify Console → tu app → **"Branches"**
-2. Click **"Connect branch"**
-3. Selecciona `dev`
-4. Cada push a `dev` despliega en su propio ambiente
-
-Los datos entre ambientes son **completamente aislados** (distintas tablas DynamoDB, distintos User Pools).
+Cada rama conectada a Amplify crea su propio stack completo (~430 recursos) con datos aislados. Si en el futuro se conecta otra rama, el backend la etiquetará con `project:environment = <rama>` y `Project = finanzas personales`. Ver [docs/AMPLIFY_BACKEND_RESOURCES.md](docs/AMPLIFY_BACKEND_RESOURCES.md).
 
 ---
 
@@ -341,7 +335,6 @@ pnpm build                          # Verificar compilación
 
 # Producción
 git push origin main                # Trigger auto-deploy
-git push origin dev                 # Deploy a ambiente dev
 
 # Debugging
 npx ampx sandbox --debug            # Logs detallados
