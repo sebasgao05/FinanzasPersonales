@@ -28,14 +28,14 @@
 **URL:** `https://us-east-1.console.aws.amazon.com/amplify/apps/d1i9b3ymodzvtk`
 
 ### Qué puedes ver:
-- **Estado de cada rama** (main, dev) — si el último deploy fue exitoso o falló
+- **Estado de cada rama** (main) — si el último deploy fue exitoso o falló
 - **Historial de builds** — cada push genera un build con logs
-- **Dominio** — URLs de cada branch (`main.d1i9b3ymodzvtk.amplifyapp.com`, `dev.d1i9b3ymodzvtk.amplifyapp.com`)
+- **Dominio** — URL de la rama (`main.d1i9b3ymodzvtk.amplifyapp.com`)
 - **Variables de entorno** — si tienes configuradas
 - **Configuración de build** — basada en `amplify.yml`
 
 ### Cómo ver logs de un deploy:
-1. Click en la rama (main o dev)
+1. Click en la rama (main)
 2. Click en el build específico (ej: `#15`)
 3. Verás las fases: `Provision → Build → Deploy → Verify`
 4. Click en cada fase para expandir los logs
@@ -52,7 +52,6 @@
 ## 2. Amazon Cognito (Usuarios)
 
 ### User Pool de main: `us-east-1_TcHewiDNh`
-### User Pool de dev: `us-east-1_BdAPZGu2G`
 
 **URL:** `https://us-east-1.console.aws.amazon.com/cognito/v2/idp/user-pools`
 
@@ -84,7 +83,6 @@
 ## 3. AWS AppSync (GraphQL API)
 
 ### API de main: `kfceolndabfv5dhp44qdbug4lm`
-### API de dev: `dhgkrew6yfhrvhrcri4c6z7pam`
 
 **URL:** `https://us-east-1.console.aws.amazon.com/appsync/home?region=us-east-1#/apis`
 
@@ -136,8 +134,8 @@ query ListTransactions {
 **URL:** `https://us-east-1.console.aws.amazon.com/dynamodbv2/home?region=us-east-1#tables`
 
 ### Cómo encontrar las tablas:
-- Buscar por: `Transaction-kfceolndabfv5dhp44qdbug4lm` (main) o `Transaction-dhgkrew6yfhrvhrcri4c6z7pam` (dev)
-- O filtrar por: `kfceolndabfv` para ver todas las de main, `dhgkrew6yfhr` para dev
+- Buscar por: `Transaction-kfceolndabfv5dhp44qdbug4lm`, o filtrar por la etiqueta `Project = finanzas personales`
+- O filtrar por: `kfceolndabfv` para ver las 9 tablas
 
 ### Qué puedes ver por tabla:
 - **Overview** — Items count, tamaño, capacidad
@@ -178,9 +176,7 @@ query ListTransactions {
 | Log Group | Contenido |
 |-----------|-----------|
 | `/aws/appsync/apis/kfceolndabfv5dhp44qdbug4lm` | Logs de AppSync main (si está habilitado) |
-| `/aws/appsync/apis/dhgkrew6yfhrvhrcri4c6z7pam` | Logs de AppSync dev (si está habilitado) |
-| `/aws/lambda/amplify-d1i9b3ymodzvtk-ma-*` | Logs de Lambdas de main |
-| `/aws/lambda/amplify-d1i9b3ymodzvtk-de-*` | Logs de Lambdas de dev |
+| `/aws/lambda/amplify-d1i9b3ymodzvtk-ma-*` | Logs de Lambdas (solo actividad en deploys) |
 
 ### Cómo ver logs de AppSync:
 1. Primero habilitar logs en AppSync (Settings → Logging → Enable)
@@ -262,9 +258,7 @@ fields @timestamp, @message
 | Bucket | Contenido |
 |--------|-----------|
 | `amplify-d1i9b3ymodzvtk-ma-amplifydataamplifycodege-*` | Codegen assets (main) |
-| `amplify-d1i9b3ymodzvtk-de-amplifydataamplifycodege-*` | Codegen assets (dev) |
 | `amplify-d1i9b3ymodzvtk-ma-modelintrospectionschema-*` | Schema JSON (main) |
-| `amplify-d1i9b3ymodzvtk-de-modelintrospectionschema-*` | Schema JSON (dev) |
 | `amplify-d1i9b3ymodzvtk-*-deployment` | Artifacts de deploy |
 
 ### Qué puedes ver:
@@ -313,7 +307,7 @@ fields @timestamp, @message
 1. **AppSync** → Queries → Probar la mutation manualmente
 2. Si falla con error de auth:
    - Verificar que el token JWT no esté expirado
-   - Verificar que el usuario está en el User Pool correcto (main vs dev)
+   - Verificar que el usuario está en el User Pool correcto
 3. Si falla con error de resolver:
    - Habilitar logs en AppSync Settings
    - Ver CloudWatch logs
@@ -368,20 +362,20 @@ npx ampx sandbox status
 # Ver outputs del backend (endpoints, IDs)
 cat amplify_outputs.json | jq .
 
-# Listar tablas DynamoDB del ambiente dev
-aws dynamodb list-tables --region us-east-1 | grep dhgkrew6yfhr
+# Listar tablas DynamoDB de main
+aws dynamodb list-tables --region us-east-1 | grep kfceolndabfv
 
 # Scan de una tabla (ver primeros items)
-aws dynamodb scan --table-name "Transaction-dhgkrew6yfhrvhrcri4c6z7pam-NONE" --region us-east-1 --max-items 5
+aws dynamodb scan --table-name "Transaction-kfceolndabfv5dhp44qdbug4lm-NONE" --region us-east-1 --max-items 5
 
 # Ver logs de AppSync (últimos 30 min)
 aws logs filter-log-events \
-  --log-group-name "/aws/appsync/apis/dhgkrew6yfhrvhrcri4c6z7pam" \
+  --log-group-name "/aws/appsync/apis/kfceolndabfv5dhp44qdbug4lm" \
   --start-time $(date -d '30 minutes ago' +%s000) \
   --region us-east-1
 
 # Ver usuarios de Cognito
-aws cognito-idp list-users --user-pool-id us-east-1_BdAPZGu2G --region us-east-1
+aws cognito-idp list-users --user-pool-id us-east-1_TcHewiDNh --region us-east-1
 
 # Ver stacks de CloudFormation
 aws cloudformation list-stacks --region us-east-1 \
@@ -390,7 +384,7 @@ aws cloudformation list-stacks --region us-east-1 \
 
 # Ver eventos de un deploy fallido
 aws cloudformation describe-stack-events \
-  --stack-name amplify-d1i9b3ymodzvtk-dev-branch-68452ea83e \
+  --stack-name amplify-d1i9b3ymodzvtk-main-branch-11a71e7e87 \
   --region us-east-1 \
   --query "StackEvents[?ResourceStatus=='CREATE_FAILED' || ResourceStatus=='UPDATE_FAILED']"
 ```

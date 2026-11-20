@@ -95,6 +95,8 @@ const schema = a.schema({
 export type Schema = ClientSchema<typeof schema>;
 
 export const data = defineData({
+  // Nombre de la API de AppSync (cambiarlo no reemplaza el recurso ni los datos)
+  name: 'finanzas-personales-api',
   schema,
   authorizationModes: {
     defaultAuthorizationMode: 'userPool',
